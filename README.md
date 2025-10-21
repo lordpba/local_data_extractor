@@ -1,6 +1,6 @@
 # 🚀 AI-Powered Document Data Extractor
 
-> **Extract structured data from any document - locally or in the cloud. Your documents, your rules, your privacy.**
+> **Extract structured data from any document - locally. Your documents, your rules, your privacy.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
