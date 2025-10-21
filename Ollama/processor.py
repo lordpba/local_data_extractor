@@ -180,46 +180,45 @@ def extract_structured_data_with_ollama(document_content, fields_to_extract, add
     # Build field descriptions
     fields_to_extract_str = "\n".join([f"- `{key}`: {description}" for key, description in fields_to_extract.items()])
 
-    # Build prompt with per-field confidence based on image quality
-    instruction = f"""You are a document data extraction assistant. Extract information from this document image.
+     # Prompt OCR generico e robusto
+    instruction = f"""
+You are a document data extraction assistant. Extract information from this document image.
 
 EXTRACTION RULES:
-1. Copy text EXACTLY as it appears (preserve formatting, spacing, case)
-2. For each field, provide the extracted value and a confidence score (0-100)
-3. **IMPORTANT**: Confidence must reflect the IMAGE QUALITY and text legibility:
-   
-   HIGH CONFIDENCE (80-100):
-   - Image is sharp and clear
-   - Text is crisp and perfectly readable
-   - No blur, no pixelation, no fading
-   - Characters are large enough and well-defined
-   
-   MEDIUM CONFIDENCE (50-79):
-   - Image has some blur or compression artifacts
-   - Text is readable but not perfectly sharp
-   - Some characters may be slightly unclear
-   - Slight fading or small font size
-   
-   LOW CONFIDENCE (20-49):
-   - Image is blurry, faded, or low resolution
-   - Text is difficult to read clearly
-   - Characters are small and compressed
-   - You had to guess some characters
-   - Scanned document with poor quality
-   
-   VERY LOW CONFIDENCE (0-19):
-   - Image is extremely poor quality
-   - Text is barely legible or illegible
-   - Heavy pixelation, blur, or fading
-   - Cannot confidently read most characters → use null
+1. Copy text EXACTLY as it appears (preserve formatting, spacing, case).
+2. For each field, provide:
+    - The extracted value (or null if unreadable)
+    - A confidence score (0-100) reflecting image quality and text legibility
+    - A brief reasoning explaining the confidence for each field
+3. Confidence must be based ONLY on image quality and text clarity:
+    - HIGH (80-100): perfectly readable, no blur/pixelation
+    - MEDIUM (50-79): some blur/artifacts, mostly readable
+    - LOW (20-49): difficult to read, guessing required
+    - VERY LOW (0-19): barely legible or illegible, mostly guessing/null
+4. For ANY field, if one or more characters are unclear, reduce confidence accordingly.
+5. Do NOT add extra text or explanations outside the JSON structure.
 
-4. **For critical data (IBAN, codes, numbers)**: 
-   - If image quality makes ANY digit/character unclear → reduce confidence significantly
-   - Example: If 1-2 characters in IBAN are unclear due to image quality → max confidence 60%
-   - Example: If several characters unclear → confidence 30-40%
-   - Better to extract with low confidence than return null
+Fields to extract:
+{fields_to_extract_str}
 
-5. In "reasoning", mention image quality issues if present
+Additional request: {additional_request if additional_request else 'None'}
+
+Respond with ONLY this JSON structure:
+{{
+
+EXTRACTION RULES:
+1. Copy text EXACTLY as it appears (preserve formatting, spacing, case).
+2. For each field, provide:
+    - The extracted value (or null if unreadable)
+    - A confidence score (0-100) reflecting image quality and text legibility
+    - A brief reasoning explaining the confidence for each field
+3. Confidence must be based ONLY on image quality and text clarity:
+    - HIGH (80-100): perfectly readable, no blur/pixelation
+    - MEDIUM (50-79): some blur/artifacts, mostly readable
+    - LOW (20-49): difficult to read, guessing required
+    - VERY LOW (0-19): barely legible or illegible, mostly guessing/null
+4. For ANY field, if one or more characters are unclear, reduce confidence accordingly.
+5. Do NOT add extra text or explanations outside the JSON structure.
 
 Fields to extract:
 {fields_to_extract_str}
