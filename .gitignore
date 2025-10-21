@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+temp_uploads/
+cache/
+*.tmp
+*.log
+
+# Test files
+test_*.py
+*_test.py
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Project specific
+Ollama/temp_uploads/
+Ollama/cache/
+GCP/temp_uploads/
+*.pdf
+*.jpg
+*.jpeg
+*.png
+
+# Except example images in docs
+!docs/**/*.png
+!docs/**/*.jpg
+!.github/**/*.png

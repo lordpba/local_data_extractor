@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Data Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: #667eea;
+            margin-right: 10px;
+        }
+
+        .file-upload {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .file-upload:hover {
+            background: #e9ecef;
+            border-color: #764ba2;
+        }
+
+        .file-upload.dragover {
+            background: #d4d7ff;
+            border-color: #667eea;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            font-size: 1.2em;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .selected-files {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .file-item-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-item-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-item-remove:hover {
+            background: #c82333;
+        }
+
+        .fields-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 2fr auto;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .field-input {
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .field-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-remove-field {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-remove-field:hover {
+            background: #c82333;
+        }
+
+        .btn-add-field {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-add-field:hover {
+            background: #218838;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-extract {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px;
+            font-size: 1.3em;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .btn-extract:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-extract:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-export-excel {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-export-excel:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .result-filename {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .result-data {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        .result-field {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .result-field:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .result-field-name {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .result-field-value {
+            color: #212529;
+            font-size: 1.1em;
+        }
+
+        .result-confidence {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #e9ecef;
+            font-style: italic;
+            color: #6c757d;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        .info-box {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .model-selection {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .current-model {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .model-select {
+            width: calc(100% - 120px);
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+            margin-right: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-refresh-models {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            vertical-align: top;
+        }
+
+        .btn-refresh-models:hover {
+            background: #764ba2;
+        }
+
+        /* Cache button CSS removed - cache system disabled */
+        /*
+            .btn-clear-cache {
+                background: #dc3545;
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1em;
+                transition: all 0.3s;
+                vertical-align: top;
+                margin-left: 10px;
+            }
+
+            .btn-clear-cache:hover {
+                background: #c82333;
+            }
+        */
+
+        .model-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-radius: 6px;
+            border-left: 4px solid #0066cc;
+        }
+
+        .model-info p {
+            margin: 5px 0;
+            color: #004080;
+        }
+        .families-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .family-card {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .family-card h4 { margin-bottom: 8px; }
+        .tier-row { display:flex; gap:8px; margin-top:6px; }
+        .tier-btn {
+            flex: 1;
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            cursor: pointer;
+            position: relative;
+        }
+        .tier-btn.installed { border-color: #28a745; background: #e9f7ef; color:#155724; }
+        .tier-btn .label { display:block; font-weight:600; }
+        .tier-btn .sub { display:block; font-size:0.85em; color:#6c757d; }
+        .tier-btn[title] { cursor: help; }
+        .tier-btn:hover:not(:disabled)::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: #333;
+            color: white;
+            border-radius: 6px;
+            font-size: 0.85em;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .tier-btn:hover:not(:disabled)::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 2px;
+            border: 6px solid transparent;
+            border-top-color: #333;
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Local Data Extractor</h1>
+            <p>Upload documents and extract structured data with AI</p>
+        </div>
+
+        <div class="content">
+            <div class="info-box">
+                <strong>Supported formats:</strong> PDF, JPG, JPEG, PNG
+            </div>
+
+            <!-- Model Selection Section -->
+            <div class="section">
+                <h2 class="section-title">0. Select Model</h2>
+                <div class="model-selection">
+                    <div class="current-model" id="currentModel">
+                        <strong>Current Model:</strong> <span id="currentModelName">Loading...</span>
+                    </div>
+                    <select id="modelSelect" class="model-select">
+                        <option value="">Loading available models...</option>
+                    </select>
+                    <button class="btn-refresh-models" onclick="loadAvailableModels()">🔄 Refresh</button>
+                    <!-- Cache button removed - cache system disabled -->
+                    <!-- <button class="btn-clear-cache" onclick="clearCache()">🗑️ Clear Cache</button> -->
+                    <!-- <div class="cache-stats" id="cacheStats" style="margin-top: 10px; font-size: 0.9em; color: #6c757d;"></div> -->
+                </div>
+            </div>
+
+            <!-- File Upload Section -->
+            <div class="section">
+                <h2 class="section-title">1. Upload Documents</h2>
+                <div class="file-upload" id="fileUpload">
+                    <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png">
+                    <label for="fileInput" class="file-upload-label">
+                        📁 Click to browse or drag files here
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedFiles"></div>
+            </div>
+
+            <!-- Fields Configuration Section -->
+            <div class="section">
+                <h2 class="section-title">2. Define Fields to Extract</h2>
+                <div class="fields-container">
+                    <div id="fieldsContainer">
+                        <div class="field-row">
+                            <input type="text" class="field-input field-name" placeholder="Field name (e.g., invoice_number)">
+                            <input type="text" class="field-input field-description" placeholder="Description (e.g., The invoice number)">
+                            <button type="button" class="btn-remove-field" onclick="removeField(this)">✕</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-add-field" onclick="addField()">+ Add Field</button>
+                </div>
+            </div>
+
+            <!-- Additional Request Section -->
+            <div class="section">
+                <h2 class="section-title">3. Additional Request (Optional)</h2>
+                <textarea id="additionalRequest" placeholder="Any additional instructions or questions about the document..."></textarea>
+            </div>
+
+            <!-- Extract Button -->
+            <button class="btn-extract" id="extractBtn" onclick="extractData()">
+                🚀 Extract Data
+            </button>
+
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing documents... This may take a moment.</p>
+            </div>
+
+            <!-- Results -->
+            <div class="results" id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        let extractionResults = []; // Store results for Excel export
+        let modelsCatalog = {}; // Store models catalog
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentModel();
+            loadAvailableModels();
+            // loadCacheStats();  // Cache system disabled
+        });
+
+        // Cache functions disabled - cache system removed for testing
+        // async function loadCacheStats() { ... }
+        // async function clearCache() { ... }
+
+        // Load current model
+        async function loadCurrentModel() {
+            try {
+                const response = await fetch('/models/current');
+                const data = await response.json();
+                document.getElementById('currentModelName').textContent = data.current_model;
+            } catch (error) {
+                console.error('Error loading current model:', error);
+                document.getElementById('currentModelName').textContent = 'Error loading model';
+            }
+        }
+
+        // Load available models from Ollama
+        async function loadAvailableModels() {
+            try {
+                // Load catalog first
+                const catalogResponse = await fetch('/models/catalog');
+                modelsCatalog = await catalogResponse.json();
+                
+                // Load installed models
+                const response = await fetch('/models/available');
+                const data = await response.json();
+                
+                const modelSelect = document.getElementById('modelSelect');
+                modelSelect.innerHTML = '';
+                
+                // Check for 'models' key (new format) or 'available_models' (old format)
+                const installedModels = data.models || data.available_models || [];
+                
+                if (installedModels.length > 0) {
+                    // Add default option
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Select a model...';
+                    modelSelect.appendChild(defaultOption);
+                    
+                    // Add installed models
+                    installedModels.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        const sizeMB = Math.round(model.size / (1024 * 1024));
+                        option.textContent = `${model.name} (${sizeMB} MB)`;
+                        modelSelect.appendChild(option);
+                    });
+                    
+                    // Add event listener for model info
+                    modelSelect.addEventListener('change', function() {
+                        if (this.value) {
+                            setSelectedModel(this.value);
+                        }
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No models installed yet';
+                    modelSelect.appendChild(option);
+                }
+                
+            } catch (error) {
+                console.error('Error loading models:', error);
+                const modelSelect = document.getElementById('modelSelect');
+                modelSelect.innerHTML = '<option value="">Error loading models</option>';
+            }
+        }
+
+        // Set selected model
+        async function setSelectedModel(modelName) {
+            try {
+                const response = await fetch('/models/set', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ model: modelName })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('currentModelName').textContent = data.model;
+                    console.log('Model updated:', data.model);
+                    
+                        // Show info about cache
+                        const infoBox = document.querySelector('.info-box');
+                        infoBox.innerHTML = '<strong>Supported formats:</strong> PDF, JPG, JPEG, PNG<br>' +
+                                           '<strong>⚠️ Model changed!</strong> Results will be re-processed (not from cache) for this model.';
+                        infoBox.style.background = '#fff3cd';
+                        infoBox.style.color = '#856404';
+                    
+                        // Reset info box after 5 seconds
+                        setTimeout(() => {
+                            infoBox.innerHTML = '<strong>Supported formats:</strong> PDF, JPG, JPEG, PNG';
+                            infoBox.style.background = '#d1ecf1';
+                            infoBox.style.color = '#0c5460';
+                        }, 5000);
+                } else {
+                    console.error('Failed to set model');
+                }
+            } catch (error) {
+                console.error('Error setting model:', error);
+            }
+        }
+
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const fileUpload = document.getElementById('fileUpload');
+        const selectedFilesDiv = document.getElementById('selectedFiles');
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        fileUpload.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Drag and drop
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files);
+            displaySelectedFiles();
+        }
+
+        function displaySelectedFiles() {
+            if (selectedFiles.length === 0) {
+                selectedFilesDiv.innerHTML = '';
+                return;
+            }
+
+            selectedFilesDiv.innerHTML = '<h3 style="margin-bottom: 15px;">Selected Files:</h3>';
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span class="file-item-name">📎 ${file.name}</span>
+                    <button class="file-item-remove" onclick="removeFile(${index})">Remove</button>
+                `;
+                selectedFilesDiv.appendChild(fileItem);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displaySelectedFiles();
+        }
+
+        // Fields management
+        function addField() {
+            const fieldsContainer = document.getElementById('fieldsContainer');
+            const fieldRow = document.createElement('div');
+            fieldRow.className = 'field-row';
+            fieldRow.innerHTML = `
+                <input type="text" class="field-input field-name" placeholder="Field name">
+                <input type="text" class="field-input field-description" placeholder="Description">
+                <button type="button" class="btn-remove-field" onclick="removeField(this)">✕</button>
+            `;
+            fieldsContainer.appendChild(fieldRow);
+        }
+
+        function removeField(button) {
+            const fieldsContainer = document.getElementById('fieldsContainer');
+            if (fieldsContainer.children.length > 1) {
+                button.parentElement.remove();
+            } else {
+                alert('At least one field is required');
+            }
+        }
+
+        // Extract data
+        async function extractData() {
+            // Validate files
+            if (selectedFiles.length === 0) {
+                alert('Please select at least one file');
+                return;
+            }
+
+            // Get fields
+            const fieldRows = document.querySelectorAll('.field-row');
+            const fields = {};
+            let hasEmptyField = false;
+
+            fieldRows.forEach(row => {
+                const name = row.querySelector('.field-name').value.trim();
+                const description = row.querySelector('.field-description').value.trim();
+                
+                if (name && description) {
+                    fields[name] = description;
+                } else if (name || description) {
+                    hasEmptyField = true;
+                }
+            });
+
+            if (Object.keys(fields).length === 0) {
+                alert('Please define at least one field with both name and description');
+                return;
+            }
+
+            if (hasEmptyField) {
+                alert('Please complete all fields or remove empty ones');
+                return;
+            }
+
+            // Prepare form data
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            formData.append('fields_to_extract', JSON.stringify(fields));
+
+            const additionalRequest = document.getElementById('additionalRequest').value.trim();
+            if (additionalRequest) {
+                formData.append('additional_request', additionalRequest);
+            }
+
+            // Show loading
+            document.getElementById('extractBtn').disabled = true;
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('results').innerHTML = '';
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Extraction failed');
+                }
+
+                // Store results for export
+                extractionResults = data;
+                displayResults(data);
+
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+                document.getElementById('results').classList.add('active');
+            } finally {
+                document.getElementById('extractBtn').disabled = false;
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div class="results-header">
+                    <h2 class="section-title">Extraction Results</h2>
+                    <button class="btn-export-excel" onclick="exportToExcel()">
+                        📊 Export to Excel
+                    </button>
+                </div>
+            `;
+
+            data.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+
+                const extraction = result.extraction.extraction_results || {};
+                let fieldsHtml = '';
+
+                // Add filename as first field automatically
+                fieldsHtml += `
+                    <div class="result-field">
+                        <div class="result-field-name">📄 Filename</div>
+                        <div class="result-field-value">${result.filename}</div>
+                    </div>
+                `;
+
+                if (extraction.data) {
+                    for (const [key, value] of Object.entries(extraction.data)) {
+                        fieldsHtml += `
+                            <div class="result-field">
+                                <div class="result-field-name">${key}</div>
+                                <div class="result-field-value">${value !== null ? value : '<em>Not found</em>'}</div>
+                            </div>
+                        `;
+                    }
+                }
+
+                let additionalResultHtml = '';
+                if (extraction.additional_request_result) {
+                    additionalResultHtml = `
+                        <div class="result-field">
+                            <div class="result-field-name">Additional Request Result</div>
+                            <div class="result-field-value">${extraction.additional_request_result}</div>
+                        </div>
+                    `;
+                }
+
+                resultItem.innerHTML = `
+                    <div class="result-filename">📄 ${result.filename}</div>
+                    <div class="result-data">
+                        ${fieldsHtml}
+                        ${additionalResultHtml}
+                    </div>
+                    <div class="result-confidence">
+                        <strong>Confidence:</strong> ${extraction.confidence_score || 'N/A'}%<br>
+                        <strong>Reasoning:</strong> ${extraction.reasoning || 'N/A'}
+                    </div>
+                `;
+
+                resultsDiv.appendChild(resultItem);
+            });
+
+            resultsDiv.classList.add('active');
+        }
+
+        async function exportToExcel() {
+            if (!extractionResults || extractionResults.length === 0) {
+                alert('No results to export');
+                return;
+            }
+
+            try {
+                const response = await fetch('/export-excel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        results: extractionResults
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Export failed');
+                }
+
+                // Download the file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                
+                // Get filename from response header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'extraction_results.xlsx';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1].replace(/['"]/g, '');
+                    }
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                // Show success message
+                alert('✅ Excel file exported successfully!');
+
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('❌ Failed to export Excel file: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

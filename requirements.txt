@@ -1,0 +1,8 @@
+flask
+google-cloud-storage
+google-cloud-documentai
+google-cloud-aiplatform
+vertexai
+Werkzeug
+PyPDF2
+Flask-Cors
