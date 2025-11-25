@@ -11,6 +11,8 @@
 Curious to see it in action before setting it up locally?
 You can try the cloud version here: **[Global Data Extractor Live](https://global-data-extractor-371839762470.us-west1.run.app/)**
 
+![Cloud Version Preview](cloud_version.png)
+
 > ⚠️ **A friendly request:** This demo runs on paid infrastructure. Please use it responsibly and avoid heavy load testing so we can keep it available for everyone.
 >
 > ❤️ **Support the project:** If you find this tool helpful, you can show your appreciation by using the **"Buy Me a Coffee"** link inside the app. Your support helps keep the servers running!
