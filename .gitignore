@@ -69,3 +69,5 @@ GCP/temp_uploads/
 !docs/**/*.png
 !docs/**/*.jpg
 !.github/**/*.png
+!cloud_version.png
+!gui.png
