@@ -9,7 +9,8 @@
 ## ☁️ Live Demo Available
 
 Curious to see it in action before setting it up locally?
-You can try the cloud version here: **[Global Data Extractor Live](https://global-data-extractor-371839762470.us-west1.run.app/)**
+You can try the cloud version here:
+ **[Global Data Extractor Live](https://global-data-extractor-371839762470.us-west1.run.app/)**
 
 ![Cloud Version Preview](cloud_version.png)
 
