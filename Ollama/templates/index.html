@@ -5,6 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Local Data Extractor</title>
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #e9ecef;
+            --text-primary: #212529;
+            --text-secondary: #495057;
+            --text-muted: #6c757d;
+            --border-color: #dee2e6;
+            --accent: #667eea;
+            --accent-dark: #764ba2;
+            --info-bg: #d1ecf1;
+            --info-text: #0c5460;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning-bg: #fff3cd;
+            --warning-text: #856404;
+            --input-bg: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #e9ecef;
+            --section-bg: #f8f9fa;
+            --header-gradient-start: #667eea;
+            --header-gradient-end: #764ba2;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1d2e;
+            --bg-secondary: #252a40;
+            --bg-tertiary: #2d3149;
+            --text-primary: #ccd6f6;
+            --text-secondary: #8892b0;
+            --text-muted: #6674a8;
+            --border-color: #3d4166;
+            --accent: #667eea;
+            --accent-dark: #8b5cf6;
+            --info-bg: #1e2a4a;
+            --info-text: #7eb8c9;
+            --success: #00d897;
+            --danger: #ff6b6b;
+            --warning-bg: #3d3520;
+            --warning-text: #f0c040;
+            --input-bg: #252a40;
+            --card-bg: #1e2236;
+            --card-border: #3d4166;
+            --section-bg: #252a40;
+            --header-gradient-start: #2d1b69;
+            --header-gradient-end: #1a1d2e;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,7 +61,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--header-gradient-start) 0%, var(--header-gradient-end) 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -21,17 +69,18 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
+            background: var(--bg-primary);
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--header-gradient-start) 0%, var(--header-gradient-end) 100%);
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
 
         .header h1 {
@@ -46,6 +95,7 @@
 
         .content {
             padding: 40px;
+            background: var(--bg-primary);
         }
 
         .section {
@@ -54,7 +104,7 @@
 
         .section-title {
             font-size: 1.5em;
-            color: #333;
+            color: var(--text-primary);
             margin-bottom: 15px;
             display: flex;
             align-items: center;
@@ -69,18 +119,18 @@
         }
 
         .file-upload {
-            border: 3px dashed #667eea;
+            border: 3px dashed var(--accent);
             border-radius: 8px;
             padding: 40px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
         }
 
         .file-upload:hover {
-            background: #e9ecef;
-            border-color: #764ba2;
+            background: var(--bg-tertiary);
+            border-color: var(--accent-dark);
         }
 
         .file-upload.dragover {
@@ -94,7 +144,7 @@
 
         .file-upload-label {
             font-size: 1.2em;
-            color: #667eea;
+            color: var(--accent);
             font-weight: 600;
         }
 
@@ -106,7 +156,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             padding: 12px 16px;
             border-radius: 6px;
             margin-bottom: 10px;
@@ -114,7 +164,7 @@
 
         .file-item-name {
             font-weight: 500;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .file-item-remove {
@@ -132,7 +182,7 @@
         }
 
         .fields-container {
-            background: #f8f9fa;
+            background: var(--section-bg);
             padding: 20px;
             border-radius: 8px;
         }
@@ -147,15 +197,17 @@
 
         .field-input {
             padding: 12px;
-            border: 2px solid #dee2e6;
+            border: 2px solid var(--border-color);
             border-radius: 6px;
             font-size: 1em;
             transition: border-color 0.3s;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         .field-input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--accent);
         }
 
         .btn-remove-field {
@@ -188,20 +240,44 @@
             background: #218838;
         }
 
+        .template-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-template {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+
+        .btn-template:hover {
+            background: #138496;
+        }
+
         textarea {
             width: 100%;
             padding: 12px;
-            border: 2px solid #dee2e6;
+            border: 2px solid var(--border-color);
             border-radius: 6px;
             font-size: 1em;
             resize: vertical;
             min-height: 100px;
             font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--accent);
         }
 
         .btn-extract {
@@ -290,7 +366,7 @@
         }
 
         .result-item {
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 20px;
@@ -299,15 +375,15 @@
         .result-filename {
             font-size: 1.3em;
             font-weight: 600;
-            color: #667eea;
+            color: var(--accent);
             margin-bottom: 15px;
         }
 
         .result-data {
-            background: white;
+            background: var(--card-bg);
             padding: 15px;
             border-radius: 6px;
-            border: 1px solid #dee2e6;
+            border: 1px solid var(--border-color);
         }
 
         .result-field {
@@ -350,15 +426,15 @@
         }
 
         .info-box {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--info-bg);
+            color: var(--info-text);
             padding: 15px;
             border-radius: 6px;
             margin-bottom: 20px;
         }
 
         .model-selection {
-            background: #f8f9fa;
+            background: var(--section-bg);
             padding: 20px;
             border-radius: 8px;
         }
@@ -366,24 +442,27 @@
         .current-model {
             margin-bottom: 15px;
             padding: 10px;
-            background: white;
+            background: var(--card-bg);
             border-radius: 6px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid var(--accent);
+            color: var(--text-primary);
         }
 
         .model-select {
             width: calc(100% - 120px);
             padding: 12px;
-            border: 2px solid #dee2e6;
+            border: 2px solid var(--border-color);
             border-radius: 6px;
             font-size: 1em;
             margin-right: 10px;
             transition: border-color 0.3s;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         .model-select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--accent);
         }
 
         .btn-refresh-models {
@@ -401,26 +480,6 @@
         .btn-refresh-models:hover {
             background: #764ba2;
         }
-
-        /* Cache button CSS removed - cache system disabled */
-        /*
-            .btn-clear-cache {
-                background: #dc3545;
-                color: white;
-                border: none;
-                padding: 12px 20px;
-                border-radius: 6px;
-                cursor: pointer;
-                font-size: 1em;
-                transition: all 0.3s;
-                vertical-align: top;
-                margin-left: 10px;
-            }
-
-            .btn-clear-cache:hover {
-                background: #c82333;
-            }
-        */
 
         .model-info {
             margin-top: 15px;
@@ -441,21 +500,23 @@
             margin-bottom: 12px;
         }
         .family-card {
-            background: #fff;
-            border: 1px solid #e9ecef;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 8px;
             padding: 12px;
+            color: var(--text-primary);
         }
         .family-card h4 { margin-bottom: 8px; }
         .tier-row { display:flex; gap:8px; margin-top:6px; }
         .tier-btn {
             flex: 1;
-            border: 1px solid #dee2e6;
+            border: 1px solid var(--border-color);
             padding: 8px;
             border-radius: 6px;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             cursor: pointer;
             position: relative;
+            color: var(--text-primary);
         }
         .tier-btn.installed { border-color: #28a745; background: #e9f7ef; color:#155724; }
         .tier-btn .label { display:block; font-weight:600; }
@@ -488,227 +549,1087 @@
             border-top-color: #333;
             z-index: 1001;
         }
+
+        /* ===== TWO-COLUMN APP LAYOUT ===== */
+        html, body { height: 100%; }
+        .container {
+            max-width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: hidden;
+        }
+        .header { flex-shrink: 0; padding: 18px 30px; }
+        .header h1 { font-size: 1.8em; margin-bottom: 4px; }
+        .app-body { display: flex; flex: 1; overflow: hidden; }
+
+        /* Left config panel */
+        .config-panel {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+            padding: 20px 18px;
+            border-right: 2px solid var(--border-color);
+            background: var(--bg-primary);
+        }
+        .config-panel .section { margin-bottom: 20px; }
+        .config-panel .section-title { font-size: 1.1em; }
+
+        /* Right validation panel */
+        .validation-panel {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #1a1d2e;
+            min-width: 0;
+        }
+        .validation-empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #4a5080;
+            text-align: center;
+            padding: 40px;
+        }
+        .validation-empty-state .empty-icon { font-size: 3.5em; margin-bottom: 16px; opacity: 0.4; }
+        .validation-empty-state h3 { font-size: 1.2em; color: #5a6498; margin-bottom: 8px; }
+        .validation-empty-state p { color: #4a5080; line-height: 1.7; font-size: 0.95em; }
+        .validation-empty-state strong { color: #667eea; }
+
+        /* Active validation state */
+        .validation-active { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+        /* --- File selector tabs --- */
+        .file-tabs-bar {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            background: #10131f;
+            border-bottom: 2px solid #252a40;
+            overflow-x: auto;
+            flex-shrink: 0;
+            scrollbar-width: thin;
+            scrollbar-color: #3d4166 transparent;
+        }
+        .file-tabs-bar::-webkit-scrollbar { height: 4px; }
+        .file-tabs-bar::-webkit-scrollbar-thumb { background: #3d4166; border-radius: 2px; }
+        .file-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 16px;
+            background: transparent;
+            color: #6674a8;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 0.78em;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .file-tab:hover { color: #ccd6f6; background: #1a1d30; }
+        .file-tab.active { color: #ccd6f6; border-bottom-color: #667eea; background: #1a1d30; }
+        .file-tab.tab-validated { color: #00d897; }
+        .file-tab.tab-validated.active { border-bottom-color: #00d897; }
+        .file-tab .tab-num {
+            background: #667eea; color: #fff;
+            width: 20px; height: 20px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 0.75em; font-weight: 800;
+        }
+        .file-tab.tab-validated .tab-num { background: #00d897; color: #003d1a; }
+
+        .q-badge {
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 0.7em;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .q-badge.pending { background: rgba(255,159,67,0.15); color: #ff9f43; border: 1px solid rgba(255,159,67,0.4); }
+        .q-badge.validated { background: rgba(0,216,151,0.15); color: #00d897; border: 1px solid rgba(0,216,151,0.4); }
+        .q-badge.processing { background: rgba(102,126,234,0.15); color: #667eea; border: 1px solid rgba(102,126,234,0.4); animation: pulse-badge 1.5s ease-in-out infinite; }
+        .q-badge.waiting { background: rgba(108,117,125,0.1); color: #6c757d; border: 1px solid rgba(108,117,125,0.3); }
+        @keyframes pulse-badge { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* --- Single-file detail area (scrollable) --- */
+        .validation-detail {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #3d4166 transparent;
+        }
+        .validation-detail::-webkit-scrollbar { width: 6px; }
+        .validation-detail::-webkit-scrollbar-thumb { background: #3d4166; border-radius: 3px; }
+
+        /* Panel headers */
+        .v-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 14px;
+            background: #141622;
+            border-bottom: 1px solid #252a40;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .v-panel-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.1em; color: #8892b0; text-transform: uppercase; }
+        .v-panel-subtitle { font-size: 0.72em; color: #4a5080; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Image toggle button */
+        .btn-toggle-image {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            background: #0d0f1c;
+            color: #6674a8;
+            border: none;
+            border-bottom: 1px solid #252a40;
+            padding: 7px 14px;
+            cursor: pointer;
+            font-size: 0.76em;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn-toggle-image:hover { background: #141830; color: #8892b0; }
+        .btn-toggle-image .toggle-arrow { transition: transform 0.25s; display: inline-block; }
+        .btn-toggle-image.expanded .toggle-arrow { transform: rotate(90deg); }
+
+        /* Document image area — hidden by default */
+        .doc-image-wrapper { display: none; }
+        .doc-image-wrapper.open { display: block; }
+        .doc-image-area {
+            overflow: auto;
+            padding: 10px;
+            background: #0d0f1c;
+            cursor: zoom-in;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            max-height: 300px;
+            scrollbar-width: thin;
+            scrollbar-color: #3d4166 transparent;
+        }
+        .doc-image-area::-webkit-scrollbar { width: 6px; height: 6px; }
+        .doc-image-area::-webkit-scrollbar-thumb { background: #3d4166; border-radius: 3px; }
+        .doc-image-area img { width: 100%; height: auto; border-radius: 3px; transition: width 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+        .doc-image-area.zoomed { cursor: zoom-out; max-height: none; }
+        .doc-image-area.zoomed img { width: 185%; }
+        .doc-no-preview { color: #4a5080; font-size: 0.9em; text-align: center; padding: 30px 0; }
+        .doc-hint { font-size: 0.68em; color: #3a4060; text-align: center; padding: 4px 8px; background: #0d0f1c; letter-spacing: 0.03em; }
+
+        /* Page controls */
+        .page-controls { display: flex; align-items: center; gap: 5px; }
+        .page-btn {
+            background: #252a40; color: #8892b0; border: 1px solid #3d4166;
+            padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em;
+        }
+        .page-btn:hover { background: #3d4166; color: #ccd6f6; }
+        .page-label { font-size: 0.78em; color: #6674a8; min-width: 65px; text-align: center; }
+
+        /* Close button */
+        .btn-close-v {
+            background: transparent; color: #4a5080; border: 1px solid #2d3149;
+            padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 0.72em;
+            letter-spacing: 0.04em; transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-close-v:hover { background: #2d3149; color: #ccd6f6; }
+
+        /* Editable fields list */
+        .editable-fields-list { scrollbar-width: thin; scrollbar-color: #3d4166 transparent; }
+        .editable-fields-list::-webkit-scrollbar { width: 5px; }
+        .editable-fields-list::-webkit-scrollbar-thumb { background: #3d4166; border-radius: 3px; }
+
+        .editable-field-row {
+            display: flex;
+            align-items: center;
+            padding: 9px 12px;
+            border-bottom: 1px solid #1e2236;
+            gap: 10px;
+            transition: background 0.15s;
+        }
+        .editable-field-row:hover { background: #1e2236; }
+        .editable-field-label {
+            font-size: 0.78em; font-weight: 700; letter-spacing: 0.07em;
+            color: #667eea; text-transform: uppercase; width: 160px;
+            flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .editable-field-input {
+            flex: 1; background: #252a40; border: 1px solid #3d4166; border-radius: 5px;
+            color: #ccd6f6; padding: 7px 9px; font-size: 0.9em; font-family: inherit;
+            transition: border-color 0.2s; min-width: 0;
+        }
+        .editable-field-input:focus { outline: none; border-color: #667eea; background: #2a3050; }
+        .editable-field-input::placeholder { color: #4a5080; font-style: italic; }
+
+        /* Validate button */
+        .btn-validate-data {
+            background: #28a745; color: white; border: none;
+            padding: 10px 24px; border-radius: 6px; cursor: pointer;
+            font-size: 0.9em; font-weight: 700; letter-spacing: 0.04em;
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-validate-data:hover { background: #218838; transform: translateY(-1px); }
+        .btn-validate-data.is-validated { background: #003d1a; color: #00d897; border: 1px solid #00d89740; }
+
+        /* Validation topbar */
+        .validation-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 14px; background: #141622; border-bottom: 1px solid #252a40;
+            flex-shrink: 0; gap: 10px;
+        }
+        /* Validation footer */
+        .validation-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; background: #10131f; border-top: 1px solid #252a40;
+            flex-shrink: 0; gap: 10px; flex-wrap: wrap;
+        }
+        .validation-progress { font-size: 0.78em; color: #6674a8; white-space: nowrap; }
+        .btn-export-excel-v {
+            background: linear-gradient(135deg, #28a745, #1a7a32); color: white;
+            border: none; padding: 7px 16px; border-radius: 6px; cursor: pointer;
+            font-size: 0.85em; font-weight: 600; transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-export-excel-v:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(40,167,69,0.35); }
+
+        /* Action bar inside detail */
+        .detail-action-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px; background: #141622; border-top: 1px solid #252a40;
+            gap: 10px; flex-wrap: wrap;
+        }
+        .nav-btn {
+            background: #252a40; color: #8892b0; border: 1px solid #3d4166;
+            padding: 7px 14px; border-radius: 5px; cursor: pointer; font-size: 0.82em;
+            font-weight: 600; transition: all 0.2s;
+        }
+        .nav-btn:hover:not(:disabled) { background: #3d4166; color: #ccd6f6; }
+        .nav-btn:disabled { opacity: 0.35; cursor: default; }
+
+        @keyframes validateFlash {
+            0% { background: #1e2236; }
+            40% { background: rgba(0,216,151,0.12); }
+            100% { background: #1e2236; }
+        }
+        .flash-validated { animation: validateFlash 0.6s ease; }
+
+        @media (max-width: 900px) {
+            .app-body { flex-direction: column; }
+            .config-panel { width: 100%; min-width: 0; max-height: 45vh; border-right: none; border-bottom: 2px solid var(--border-color); }
+            .validation-panel { min-height: 350px; }
+        }
+
+        /* ===== THEME TOGGLE ===== */
+        .theme-toggle {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+            backdrop-filter: blur(4px);
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.25); }
+
+        /* ===== HELP BUTTON ===== */
+        .help-btn {
+            position: absolute;
+            top: 12px;
+            left: 18px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+            backdrop-filter: blur(4px);
+        }
+        .help-btn:hover { background: rgba(255,255,255,0.25); }
+
+        /* ===== TEMPLATE PRESETS ===== */
+        .preset-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .preset-row label {
+            font-weight: 600;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .preset-select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9em;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .preset-select:focus { outline: none; border-color: var(--accent); }
+
+        /* ===== EXTRACTION OPTIONS ===== */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .option-group {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .option-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .option-select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9em;
+            background: var(--input-bg);
+            color: var(--text-primary);
+        }
+        .option-select:focus { outline: none; border-color: var(--accent); }
+        .option-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .option-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .option-checkbox span {
+            font-size: 0.9em;
+            color: var(--text-primary);
+        }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--section-bg);
+            border-radius: 8px;
+        }
+        .progress-container.active { display: block; }
+        .progress-bar-outer {
+            width: 100%;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+            border-radius: 12px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+        .progress-file {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .progress-timer {
+            font-family: monospace;
+            color: var(--accent);
+        }
+
+        /* ===== CONFIDENCE BAR ===== */
+        .confidence-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-top: 1px solid #252a40;
+        }
+        .confidence-bar-label {
+            font-size: 0.72em;
+            font-weight: 700;
+            color: #5a6498;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        .confidence-bar-track {
+            flex: 1;
+            height: 8px;
+            background: #252a40;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.8s ease;
+        }
+        .confidence-bar-fill.high { background: #00d897; }
+        .confidence-bar-fill.medium { background: #ff9f43; }
+        .confidence-bar-fill.low { background: #ff6b6b; }
+        .confidence-bar-value {
+            font-size: 0.82em;
+            font-weight: 700;
+            min-width: 38px;
+            text-align: right;
+        }
+        .confidence-bar-value.high { color: #00d897; }
+        .confidence-bar-value.medium { color: #ff9f43; }
+        .confidence-bar-value.low { color: #ff6b6b; }
+
+        /* ===== DURATION BADGE ===== */
+        .duration-badge {
+            font-size: 0.72em;
+            color: #6674a8;
+            background: #1e2236;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+            font-family: monospace;
+        }
+
+        /* ===== HELP MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-radius: 12px;
+            max-width: 680px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .modal-content h2 {
+            font-size: 1.5em;
+            margin-bottom: 16px;
+            color: var(--accent);
+        }
+        .modal-content h3 {
+            font-size: 1.1em;
+            margin: 16px 0 8px;
+            color: var(--accent);
+        }
+        .modal-content p, .modal-content li {
+            font-size: 0.95em;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+        .modal-content ul { padding-left: 20px; margin-bottom: 12px; }
+        .modal-content code {
+            background: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .modal-close {
+            float: right;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .modal-close:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+        /* ===== SAVED TEMPLATES LIST ===== */
+        .saved-templates-list {
+            margin-top: 8px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .saved-template-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 5px;
+            margin-bottom: 4px;
+            font-size: 0.85em;
+            color: var(--text-primary);
+        }
+        .saved-template-item button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+            padding: 2px 6px;
+        }
+        .saved-template-load { color: var(--accent); }
+        .saved-template-delete { color: var(--danger); }
+
+        /* ===== GPU INFO BADGE ===== */
+        .gpu-info {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            font-size: 0.82em;
+            color: var(--text-secondary);
+        }
+        .gpu-info .gpu-label { font-weight: 700; color: var(--accent); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <button class="help-btn" onclick="showHelp()">? Help</button>
             <h1>📄 Local Data Extractor</h1>
             <p>Upload documents and extract structured data with AI</p>
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙 Dark</button>
         </div>
 
-        <div class="content">
-            <div class="info-box">
-                <strong>Supported formats:</strong> PDF, JPG, JPEG, PNG
-            </div>
+        <div class="app-body">
 
-            <!-- Model Selection Section -->
-            <div class="section">
-                <h2 class="section-title">0. Select Model</h2>
-                <div class="model-selection">
-                    <div class="current-model" id="currentModel">
-                        <strong>Current Model:</strong> <span id="currentModelName">Loading...</span>
-                    </div>
-                    <select id="modelSelect" class="model-select">
-                        <option value="">Loading available models...</option>
-                    </select>
-                    <button class="btn-refresh-models" onclick="loadAvailableModels()">🔄 Refresh</button>
-                    <!-- Cache button removed - cache system disabled -->
-                    <!-- <button class="btn-clear-cache" onclick="clearCache()">🗑️ Clear Cache</button> -->
-                    <!-- <div class="cache-stats" id="cacheStats" style="margin-top: 10px; font-size: 0.9em; color: #6c757d;"></div> -->
+            <!-- ===== LEFT: CONFIG PANEL ===== -->
+            <div class="config-panel">
+                <div class="info-box" id="infoBox">
+                    <strong>Supported formats:</strong> PDF, JPG, JPEG, PNG
                 </div>
-            </div>
 
-            <!-- File Upload Section -->
-            <div class="section">
-                <h2 class="section-title">1. Upload Documents</h2>
-                <div class="file-upload" id="fileUpload">
-                    <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png">
-                    <label for="fileInput" class="file-upload-label">
-                        📁 Click to browse or drag files here
-                    </label>
-                </div>
-                <div class="selected-files" id="selectedFiles"></div>
-            </div>
-
-            <!-- Fields Configuration Section -->
-            <div class="section">
-                <h2 class="section-title">2. Define Fields to Extract</h2>
-                <div class="fields-container">
-                    <div id="fieldsContainer">
-                        <div class="field-row">
-                            <input type="text" class="field-input field-name" placeholder="Field name (e.g., invoice_number)">
-                            <input type="text" class="field-input field-description" placeholder="Description (e.g., The invoice number)">
-                            <button type="button" class="btn-remove-field" onclick="removeField(this)">✕</button>
+                <!-- Model Selection Section -->
+                <div class="section">
+                    <h2 class="section-title">0. Select Model</h2>
+                    <div class="model-selection">
+                        <div class="current-model" id="currentModel">
+                            <strong>Current Model:</strong> <span id="currentModelName">Loading...</span>
+                        </div>
+                        <select id="modelSelect" class="model-select">
+                            <option value="">Loading available models...</option>
+                        </select>
+                        <button class="btn-refresh-models" onclick="loadAvailableModels()">🔄 Refresh</button>
+                        <div class="gpu-info" id="gpuInfo" style="display:none;">
+                            <span class="gpu-label">GPU:</span> <span id="gpuInfoText">Detecting...</span>
                         </div>
                     </div>
-                    <button type="button" class="btn-add-field" onclick="addField()">+ Add Field</button>
+                </div>
+
+                <!-- File Upload Section -->
+                <div class="section">
+                    <h2 class="section-title">1. Upload Documents</h2>
+                    <div class="file-upload" id="fileUpload">
+                        <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png">
+                        <label for="fileInput" class="file-upload-label">
+                            📁 Click to browse or drag files here
+                        </label>
+                    </div>
+                    <div class="selected-files" id="selectedFiles"></div>
+                </div>
+
+                <!-- Fields Configuration Section -->
+                <div class="section">
+                    <h2 class="section-title">2. Define Fields to Extract</h2>
+                    <div class="fields-container">
+                        <!-- Template Presets -->
+                        <div class="preset-row">
+                            <label>Preset:</label>
+                            <select class="preset-select" id="presetSelect" onchange="applyPreset(this.value)">
+                                <option value="">-- Custom fields --</option>
+                                <option value="fattura">Fattura / Invoice</option>
+                                <option value="cv">CV / Curriculum Vitae</option>
+                                <option value="carta_identita">Carta d'Identità / ID Card</option>
+                                <option value="contratto">Contratto / Contract</option>
+                                <option value="ricevuta">Ricevuta / Receipt</option>
+                                <option value="codice_fiscale">Codice Fiscale</option>
+                            </select>
+                        </div>
+
+                        <div id="fieldsContainer">
+                            <div class="field-row">
+                                <input type="text" class="field-input field-name" placeholder="Field name (e.g., invoice_number)">
+                                <input type="text" class="field-input field-description" placeholder="Description (e.g., The invoice number)">
+                                <button type="button" class="btn-remove-field" onclick="removeField(this)">✕</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-add-field" onclick="addField()">+ Add Field</button>
+                        <div class="template-actions">
+                            <button type="button" class="btn-template" onclick="saveTemplateJson()">💾 Save JSON</button>
+                            <button type="button" class="btn-template" onclick="triggerTemplateLoad()">📂 Load JSON</button>
+                            <button type="button" class="btn-template" onclick="saveToLocalStorage()">💾 Save to Browser</button>
+                            <input type="file" id="templateFileInput" accept=".json,application/json" style="display:none;">
+                        </div>
+                        <div class="saved-templates-list" id="savedTemplatesList"></div>
+                    </div>
+                </div>
+
+                <!-- Additional Request Section -->
+                <div class="section">
+                    <h2 class="section-title">3. Document Context (Optional)</h2>
+                    <div class="fields-container">
+                        <label for="documentType" style="display:block; margin-bottom:8px; font-weight:600; color:var(--text-primary);">Document Type:</label>
+                        <select id="documentType" class="field-input" style="width:100%; margin-bottom:15px;">
+                            <option value="">-- Select document type --</option>
+                            <option value="invoice">Invoice / Fattura</option>
+                            <option value="receipt">Receipt / Scontrino</option>
+                            <option value="form">Form / Modulo compilato a mano</option>
+                            <option value="contract">Contract / Contratto</option>
+                            <option value="id_document">ID Document / Documento identità</option>
+                            <option value="certificate">Certificate / Certificato</option>
+                            <option value="custom">Custom / Altro</option>
+                        </select>
+                        <label for="additionalRequest" style="display:block; margin-bottom:8px; font-weight:600; color:var(--text-primary);">Additional Instructions:</label>
+                        <textarea id="additionalRequest" placeholder="Any additional instructions about the document..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Extraction Options Section -->
+                <div class="section">
+                    <h2 class="section-title">3b. Extraction Options</h2>
+                    <div class="fields-container">
+                        <div class="options-grid">
+                            <div class="option-group">
+                                <label for="extractionStrategy">Extraction Strategy</label>
+                                <select id="extractionStrategy" class="option-select">
+                                    <option value="auto" selected>Auto (recommended)</option>
+                                    <option value="single_pass">Single Pass (fast)</option>
+                                    <option value="ocr_then_extract">OCR → Extract (best quality)</option>
+                                </select>
+                            </div>
+                            <div class="option-group">
+                                <label for="pageRange">Pages to Process</label>
+                                <select id="pageRange" class="option-select">
+                                    <option value="all" selected>All pages</option>
+                                    <option value="first">First page only</option>
+                                    <option value="1">Page 1</option>
+                                    <option value="2">Pages 1-2</option>
+                                    <option value="3">Pages 1-3</option>
+                                    <option value="5">Pages 1-5</option>
+                                </select>
+                            </div>
+                            <div class="option-group" style="grid-column: span 2;">
+                                <div class="option-checkbox">
+                                    <input type="checkbox" id="handwritingMode">
+                                    <span>Handwriting Mode — Enhanced OCR for handwritten documents</span>
+                                </div>
+                                <div class="option-checkbox" style="margin-top:6px;">
+                                    <input type="checkbox" id="autoExport">
+                                    <span>Auto-export Excel after all documents are validated</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Prompt Section -->
+                <div class="section">
+                    <h2 class="section-title" style="cursor:pointer;" onclick="toggleSystemPrompt()">
+                        4. System Prompt (Advanced) <span id="promptToggle">▶</span>
+                    </h2>
+                    <div id="systemPromptSection" style="display:none;">
+                        <div class="fields-container">
+                            <div class="info-box" style="margin-bottom:15px; background:#fff3cd; color:#856404;">
+                                ⚠️ <strong>Advanced:</strong> Modify only if you know what you're doing.
+                            </div>
+                            <label for="systemPrompt" style="display:block; margin-bottom:8px; font-weight:600;">Vision System Prompt:</label>
+                            <textarea id="systemPrompt" style="min-height:160px; font-family:monospace; font-size:0.85em;"></textarea>
+                            <button type="button" class="btn-add-field" style="background:#6c757d; margin-top:10px;" onclick="resetSystemPrompt()">🔄 Reset to Default</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extract Button -->
+                <button class="btn-extract" id="extractBtn" onclick="extractData()">
+                    🚀 Extract Data
+                </button>
+
+                <!-- Loading / Progress -->
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p id="loadingText">Processing documents... This may take a moment.</p>
+                </div>
+
+                <!-- Progress Bar (replaces spinner during extraction) -->
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner" id="progressBarInner"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span class="progress-file" id="progressFile">Preparing...</span>
+                        <span class="progress-timer" id="progressTimer">00:00</span>
+                    </div>
                 </div>
             </div>
+            <!-- END CONFIG PANEL -->
 
-            <!-- Additional Request Section -->
-            <div class="section">
-                <h2 class="section-title">3. Additional Request (Optional)</h2>
-                <textarea id="additionalRequest" placeholder="Any additional instructions or questions about the document..."></textarea>
+            <!-- ===== RIGHT: VALIDATION PANEL ===== -->
+            <div class="validation-panel" id="validationPanel">
+
+                <!-- Empty state (shown before any extraction) -->
+                <div class="validation-empty-state" id="validationEmptyState">
+                    <div class="empty-icon">📋</div>
+                    <h3>Validation Panel</h3>
+                    <p>Configure your fields on the left,<br>upload documents and click<br><strong>🚀 Extract Data</strong> to start.<br><br>Extracted fields will appear here<br>for human review and correction.</p>
+                </div>
+
+                <!-- Active validation (shown after extraction) -->
+                <div class="validation-active" id="validationActive" style="display:none;">
+
+                    <!-- Top bar: close + progress -->
+                    <div class="validation-topbar">
+                        <button class="btn-close-v" onclick="closeValidation()">CLOSE VALIDATION ✕</button>
+                        <span class="validation-progress" id="validationProgress">0 / 0 validated</span>
+                    </div>
+
+                    <!-- File selector tabs -->
+                    <div class="file-tabs-bar" id="fileTabsBar">
+                        <!-- Tabs injected by JS -->
+                    </div>
+
+                    <!-- Single-file detail (scrollable) -->
+                    <div class="validation-detail" id="validationDetail">
+                        <!-- Content for the selected file injected by JS -->
+                    </div>
+
+                    <!-- Validation footer -->
+                    <div class="validation-footer">
+                        <span class="validation-progress" id="validationProgressFooter">0 / 0 validated</span>
+                        <button class="btn-export-excel-v" onclick="exportToExcel()">📊 Export to Excel</button>
+                    </div>
+
+                </div><!-- end validation-active -->
             </div>
+            <!-- END VALIDATION PANEL -->
 
-            <!-- Extract Button -->
-            <button class="btn-extract" id="extractBtn" onclick="extractData()">
-                🚀 Extract Data
-            </button>
+        </div><!-- end app-body -->
+    </div><!-- end container -->
 
-            <!-- Loading -->
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Processing documents... This may take a moment.</p>
-            </div>
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeHelp()">Close ✕</button>
+            <h2>📄 Local Data Extractor — Help</h2>
+            
+            <h3>Quick Start</h3>
+            <ul>
+                <li>Select a <strong>vision model</strong> (gemma3:27b recommended for best quality)</li>
+                <li>Upload one or more documents (PDF, JPG, PNG)</li>
+                <li>Choose a <strong>preset template</strong> or define custom fields</li>
+                <li>Click <strong>Extract Data</strong> and review results in the validation panel</li>
+                <li>Edit any field, click <strong>Validate</strong>, then <strong>Export to Excel</strong></li>
+            </ul>
 
-            <!-- Results -->
-            <div class="results" id="results"></div>
+            <h3>Extraction Strategies</h3>
+            <ul>
+                <li><strong>Auto</strong> — Picks the best strategy based on the model and settings</li>
+                <li><strong>Single Pass</strong> — Sends image directly to the vision model for JSON extraction (fastest)</li>
+                <li><strong>OCR → Extract</strong> — Phase 1: vision OCR reads all text. Phase 2: text-only LLM extracts structured data (best quality for handwriting)</li>
+            </ul>
+
+            <h3>Handwriting Mode</h3>
+            <p>Enable for handwritten documents. Adds extra prompts for character-by-character attention and reduces hallucination on ambiguous characters.</p>
+
+            <h3>Template Presets</h3>
+            <p>Use built-in presets for common Italian documents: Fattura, CV, Carta d'Identità, Contratto. You can also save your custom field configurations to the browser's local storage.</p>
+
+            <h3>Tips</h3>
+            <ul>
+                <li>For multi-page PDFs, use <strong>Page Range</strong> to process only relevant pages</li>
+                <li>Higher-parameter models (27B) are slower but significantly more accurate</li>
+                <li>The <strong>OCR → Extract</strong> strategy works best with models that struggle with direct JSON extraction</li>
+                <li><code>gemma3:27b</code> scored 81% on handwritten CF tests — the best local result</li>
+            </ul>
         </div>
     </div>
 
     <script>
+        // ===== STATE =====
         let selectedFiles = [];
-        let extractionResults = []; // Store results for Excel export
-        let modelsCatalog = {}; // Store models catalog
+        let validationQueue = []; // [{filename, extraction, preview_images, validated, editedData, duration}]
+        let currentDocIndex = 0;
+        let currentPageIndex = 0;
+        let modelsCatalog = {};
+        let progressTimerId = null;
+        let progressStartTime = null;
 
-        // Initialize on page load
+        // Template presets
+        const TEMPLATE_PRESETS = {
+            fattura: {
+                label: 'Fattura / Invoice',
+                docType: 'invoice',
+                fields: [
+                    { key: 'invoice_number', value: 'Invoice/fattura number' },
+                    { key: 'invoice_date', value: 'Invoice date (DD/MM/YYYY)' },
+                    { key: 'supplier_name', value: 'Supplier/vendor name' },
+                    { key: 'supplier_vat', value: 'Supplier VAT number (Partita IVA)' },
+                    { key: 'total_taxable', value: 'Total taxable amount (imponibile)' },
+                    { key: 'total_vat', value: 'Total VAT amount (IVA)' },
+                    { key: 'invoice_total', value: 'Total invoice amount (totale fattura)' }
+                ]
+            },
+            cv: {
+                label: 'CV / Curriculum Vitae',
+                docType: 'custom',
+                fields: [
+                    { key: 'full_name', value: 'Full name of the person' },
+                    { key: 'email', value: 'Email address' },
+                    { key: 'phone', value: 'Phone number' },
+                    { key: 'address', value: 'Address or city' },
+                    { key: 'work_experience', value: 'Most recent work experience (company + role)' },
+                    { key: 'education', value: 'Highest education level/degree' },
+                    { key: 'skills', value: 'Key skills (comma-separated)' }
+                ]
+            },
+            carta_identita: {
+                label: "Carta d'Identità / ID Card",
+                docType: 'id_document',
+                fields: [
+                    { key: 'last_name', value: 'Last name (cognome)' },
+                    { key: 'first_name', value: 'First name (nome)' },
+                    { key: 'birth_date', value: 'Date of birth (DD/MM/YYYY)' },
+                    { key: 'birth_place', value: 'Place of birth (luogo di nascita)' },
+                    { key: 'codice_fiscale', value: 'Italian fiscal code — 16 alphanumeric characters' },
+                    { key: 'document_number', value: 'ID document number' },
+                    { key: 'expiry_date', value: 'Expiry date (DD/MM/YYYY)' }
+                ]
+            },
+            contratto: {
+                label: 'Contratto / Contract',
+                docType: 'contract',
+                fields: [
+                    { key: 'party_1', value: 'First party name (parte 1)' },
+                    { key: 'party_2', value: 'Second party name (parte 2)' },
+                    { key: 'signing_date', value: 'Contract signing date' },
+                    { key: 'contract_subject', value: 'Subject/object of the contract' },
+                    { key: 'start_date', value: 'Contract start date' },
+                    { key: 'end_date', value: 'Contract end date' },
+                    { key: 'total_value', value: 'Total contract value/amount' }
+                ]
+            },
+            ricevuta: {
+                label: 'Ricevuta / Receipt',
+                docType: 'receipt',
+                fields: [
+                    { key: 'vendor_name', value: 'Vendor/store name' },
+                    { key: 'receipt_date', value: 'Date of receipt (DD/MM/YYYY)' },
+                    { key: 'total_amount', value: 'Total amount paid' },
+                    { key: 'payment_method', value: 'Payment method (cash/card/etc.)' },
+                    { key: 'items', value: 'List of items or description of purchase' }
+                ]
+            },
+            codice_fiscale: {
+                label: 'Codice Fiscale',
+                docType: 'form',
+                fields: [
+                    { key: 'last_name', value: 'Last name (cognome)' },
+                    { key: 'first_name', value: 'First name (nome)' },
+                    { key: 'codice_fiscale', value: 'Italian fiscal code (Codice Fiscale) — exactly 16 alphanumeric characters, format: 6 letters + 2 digits + 1 letter + 2 digits + 1 letter + 3 digits + 1 letter' },
+                    { key: 'birth_date', value: 'Date of birth (DD/MM/YYYY)' },
+                    { key: 'birth_place', value: 'Place of birth' }
+                ]
+            }
+        };
+
+        // Default system prompt
+        const DEFAULT_SYSTEM_PROMPT = `You are an expert vision document extraction system specialized in reading documents, including handwritten text.
+
+CRITICAL INSTRUCTIONS:
+
+1. **READ CAREFULLY**: Examine EVERY character in the image. For handwritten text:
+   - Look at the SHAPE of each letter/number
+   - Consider context to disambiguate similar characters (0/O, 1/I/l, 5/S, 8/B)
+   - Italian Codice Fiscale format: 16 chars = 6 letters + 2 digits + 1 letter + 2 digits + 1 letter + 3 digits + 1 letter
+
+2. **CHARACTER-BY-CHARACTER**: For codes, IDs, and numbers:
+   - Read EACH character individually
+   - Double-check ambiguous characters
+   - Report exactly what you see
+
+3. **VISUAL CONTEXT**: Use full visual context (tables, labels, layout, handwritten notes) to map values to requested fields.
+
+4. **BE PRECISE**: Copy text EXACTLY as written (preserve case, spacing, punctuation).`;
+
+        // ===== INIT =====
         document.addEventListener('DOMContentLoaded', function() {
             loadCurrentModel();
             loadAvailableModels();
-            // loadCacheStats();  // Cache system disabled
+            resetSystemPrompt();
+            loadTheme();
+            renderSavedTemplates();
+            detectGPU();
         });
 
-        // Cache functions disabled - cache system removed for testing
-        // async function loadCacheStats() { ... }
-        // async function clearCache() { ... }
+        // ===== THEME =====
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme') || 'light';
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('lde-theme', next);
+            updateThemeButton(next);
+        }
 
-        // Load current model
+        function loadTheme() {
+            const saved = localStorage.getItem('lde-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateThemeButton(saved);
+        }
+
+        function updateThemeButton(theme) {
+            const btn = document.getElementById('themeToggle');
+            btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
+        }
+
+        // ===== HELP MODAL =====
+        function showHelp() {
+            document.getElementById('helpModal').classList.add('active');
+        }
+        function closeHelp() {
+            document.getElementById('helpModal').classList.remove('active');
+        }
+        document.getElementById('helpModal').addEventListener('click', function(e) {
+            if (e.target === this) closeHelp();
+        });
+
+        // ===== GPU DETECTION =====
+        async function detectGPU() {
+            try {
+                const response = await fetch('/gpu/detect');
+                if (!response.ok) return;
+                const data = await response.json();
+                const gpuDiv = document.getElementById('gpuInfo');
+                const gpuText = document.getElementById('gpuInfoText');
+                if (data.gpus && data.gpus.length > 0) {
+                    const summary = data.gpus.map(g => `${g.name} (${g.memory_total_mb}MB free: ${g.memory_free_mb}MB)`).join(' + ');
+                    gpuText.innerHTML = `${summary}${data.recommended_model ? ' — Recommended: <strong>' + data.recommended_model + '</strong>' : ''}`;
+                    gpuDiv.style.display = 'block';
+                }
+            } catch (e) { /* silent */ }
+        }
+
+        // ===== MODEL FUNCTIONS =====
         async function loadCurrentModel() {
             try {
                 const response = await fetch('/models/current');
                 const data = await response.json();
                 document.getElementById('currentModelName').textContent = data.current_model;
             } catch (error) {
-                console.error('Error loading current model:', error);
                 document.getElementById('currentModelName').textContent = 'Error loading model';
             }
         }
 
-        // Load available models from Ollama
         async function loadAvailableModels() {
             try {
-                // Load catalog first
                 const catalogResponse = await fetch('/models/catalog');
                 modelsCatalog = await catalogResponse.json();
-                
-                // Load installed models
                 const response = await fetch('/models/available');
                 const data = await response.json();
-                
                 const modelSelect = document.getElementById('modelSelect');
                 modelSelect.innerHTML = '';
-                
-                // Check for 'models' key (new format) or 'available_models' (old format)
                 const installedModels = data.models || data.available_models || [];
-                
-                if (installedModels.length > 0) {
-                    // Add default option
+                const visionModels = installedModels.filter(m => m.is_vision === true);
+                if (visionModels.length > 0) {
                     const defaultOption = document.createElement('option');
                     defaultOption.value = '';
-                    defaultOption.textContent = 'Select a model...';
+                    defaultOption.textContent = `Select a vision model (${visionModels.length} available)...`;
                     modelSelect.appendChild(defaultOption);
-                    
-                    // Add installed models
-                    installedModels.forEach(model => {
+                    visionModels.forEach(model => {
                         const option = document.createElement('option');
                         option.value = model.name;
                         const sizeMB = Math.round(model.size / (1024 * 1024));
-                        option.textContent = `${model.name} (${sizeMB} MB)`;
+                        const paramSize = model.parameter_size !== 'Unknown' ? ` - ${model.parameter_size}` : '';
+                        option.textContent = `🔮 ${model.name} (${sizeMB} MB${paramSize})`;
                         modelSelect.appendChild(option);
                     });
-                    
-                    // Add event listener for model info
+                    const nonVisionCount = installedModels.length - visionModels.length;
+                    if (nonVisionCount > 0) {
+                        const infoOption = document.createElement('option');
+                        infoOption.disabled = true;
+                        infoOption.textContent = `── ${nonVisionCount} text-only models hidden ──`;
+                        modelSelect.appendChild(infoOption);
+                    }
                     modelSelect.addEventListener('change', function() {
-                        if (this.value) {
-                            setSelectedModel(this.value);
-                        }
+                        if (this.value) setSelectedModel(this.value);
                     });
                 } else {
                     const option = document.createElement('option');
                     option.value = '';
-                    option.textContent = 'No models installed yet';
+                    option.textContent = '❌ No vision models installed';
                     modelSelect.appendChild(option);
                 }
-                
             } catch (error) {
-                console.error('Error loading models:', error);
-                const modelSelect = document.getElementById('modelSelect');
-                modelSelect.innerHTML = '<option value="">Error loading models</option>';
+                document.getElementById('modelSelect').innerHTML = '<option value="">Error loading models</option>';
             }
         }
 
-        // Set selected model
         async function setSelectedModel(modelName) {
             try {
                 const response = await fetch('/models/set', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model: modelName })
                 });
-                
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('currentModelName').textContent = data.model;
-                    console.log('Model updated:', data.model);
-                    
-                        // Show info about cache
-                        const infoBox = document.querySelector('.info-box');
-                        infoBox.innerHTML = '<strong>Supported formats:</strong> PDF, JPG, JPEG, PNG<br>' +
-                                           '<strong>⚠️ Model changed!</strong> Results will be re-processed (not from cache) for this model.';
-                        infoBox.style.background = '#fff3cd';
-                        infoBox.style.color = '#856404';
-                    
-                        // Reset info box after 5 seconds
-                        setTimeout(() => {
-                            infoBox.innerHTML = '<strong>Supported formats:</strong> PDF, JPG, JPEG, PNG';
-                            infoBox.style.background = '#d1ecf1';
-                            infoBox.style.color = '#0c5460';
-                        }, 5000);
-                } else {
-                    console.error('Failed to set model');
                 }
             } catch (error) {
                 console.error('Error setting model:', error);
             }
         }
 
-        // File upload handling
+        // ===== FILE UPLOAD =====
         const fileInput = document.getElementById('fileInput');
         const fileUpload = document.getElementById('fileUpload');
         const selectedFilesDiv = document.getElementById('selectedFiles');
 
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
-
-        fileUpload.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        // Drag and drop
-        fileUpload.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            fileUpload.classList.add('dragover');
-        });
-
-        fileUpload.addEventListener('dragleave', () => {
-            fileUpload.classList.remove('dragover');
-        });
-
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        fileUpload.addEventListener('click', () => fileInput.click());
+        fileUpload.addEventListener('dragover', (e) => { e.preventDefault(); fileUpload.classList.add('dragover'); });
+        fileUpload.addEventListener('dragleave', () => fileUpload.classList.remove('dragover'));
         fileUpload.addEventListener('drop', (e) => {
             e.preventDefault();
             fileUpload.classList.remove('dragover');
@@ -721,12 +1642,8 @@
         }
 
         function displaySelectedFiles() {
-            if (selectedFiles.length === 0) {
-                selectedFilesDiv.innerHTML = '';
-                return;
-            }
-
-            selectedFilesDiv.innerHTML = '<h3 style="margin-bottom: 15px;">Selected Files:</h3>';
+            if (selectedFiles.length === 0) { selectedFilesDiv.innerHTML = ''; return; }
+            selectedFilesDiv.innerHTML = '<h3 style="margin-bottom: 15px; color: var(--text-primary);">Selected Files:</h3>';
             selectedFiles.forEach((file, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item';
@@ -743,7 +1660,7 @@
             displaySelectedFiles();
         }
 
-        // Fields management
+        // ===== FIELDS MANAGEMENT =====
         function addField() {
             const fieldsContainer = document.getElementById('fieldsContainer');
             const fieldRow = document.createElement('div');
@@ -765,202 +1682,708 @@
             }
         }
 
-        // Extract data
-        async function extractData() {
-            // Validate files
-            if (selectedFiles.length === 0) {
-                alert('Please select at least one file');
-                return;
-            }
+        function getFieldsFromUi() {
+            const fieldRows = document.querySelectorAll('.field-row');
+            const fields = [];
+            fieldRows.forEach(row => {
+                const key = row.querySelector('.field-name').value.trim();
+                const value = row.querySelector('.field-description').value.trim();
+                if (key && value) fields.push({ key, value });
+            });
+            return fields;
+        }
 
-            // Get fields
+        function setFieldsInUi(fields) {
+            const fieldsContainer = document.getElementById('fieldsContainer');
+            fieldsContainer.innerHTML = '';
+            fields.forEach(field => {
+                const fieldRow = document.createElement('div');
+                fieldRow.className = 'field-row';
+                fieldRow.innerHTML = `
+                    <input type="text" class="field-input field-name" placeholder="Field name" value="${escapeHtml(field.key || '')}">
+                    <input type="text" class="field-input field-description" placeholder="Description" value="${escapeHtml(field.value || '')}">
+                    <button type="button" class="btn-remove-field" onclick="removeField(this)">✕</button>
+                `;
+                fieldsContainer.appendChild(fieldRow);
+            });
+            if (fieldsContainer.children.length === 0) addField();
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        // ===== TEMPLATE PRESETS =====
+        function applyPreset(presetKey) {
+            if (!presetKey) return;
+            const preset = TEMPLATE_PRESETS[presetKey];
+            if (!preset) return;
+            setFieldsInUi(preset.fields);
+            if (preset.docType) document.getElementById('documentType').value = preset.docType;
+            // Auto-enable handwriting mode for ID/CF documents
+            if (['carta_identita', 'codice_fiscale'].includes(presetKey)) {
+                document.getElementById('handwritingMode').checked = true;
+            }
+        }
+
+        // ===== LOCALSTORAGE TEMPLATES =====
+        function getSavedTemplates() {
+            try {
+                return JSON.parse(localStorage.getItem('lde-templates') || '{}');
+            } catch { return {}; }
+        }
+
+        function saveToLocalStorage() {
+            const fields = getFieldsFromUi();
+            if (fields.length === 0) { alert('Define at least one complete field first.'); return; }
+            const name = prompt('Template name:');
+            if (!name || !name.trim()) return;
+            const templates = getSavedTemplates();
+            templates[name.trim()] = {
+                fields,
+                instructions: document.getElementById('additionalRequest').value.trim(),
+                docType: document.getElementById('documentType').value,
+                savedAt: new Date().toISOString()
+            };
+            localStorage.setItem('lde-templates', JSON.stringify(templates));
+            renderSavedTemplates();
+            alert(`✅ Template "${name.trim()}" saved to browser.`);
+        }
+
+        function loadFromLocalStorage(name) {
+            const templates = getSavedTemplates();
+            const t = templates[name];
+            if (!t) return;
+            setFieldsInUi(t.fields);
+            if (t.instructions) document.getElementById('additionalRequest').value = t.instructions;
+            if (t.docType) document.getElementById('documentType').value = t.docType;
+            document.getElementById('presetSelect').value = '';
+        }
+
+        function deleteFromLocalStorage(name) {
+            if (!confirm(`Delete template "${name}"?`)) return;
+            const templates = getSavedTemplates();
+            delete templates[name];
+            localStorage.setItem('lde-templates', JSON.stringify(templates));
+            renderSavedTemplates();
+        }
+
+        function renderSavedTemplates() {
+            const container = document.getElementById('savedTemplatesList');
+            const templates = getSavedTemplates();
+            const names = Object.keys(templates);
+            if (names.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML = names.map(name => `
+                <div class="saved-template-item">
+                    <span>📋 ${escapeHtml(name)} (${templates[name].fields.length} fields)</span>
+                    <div>
+                        <button class="saved-template-load" onclick="loadFromLocalStorage('${escapeHtml(name)}')">Load</button>
+                        <button class="saved-template-delete" onclick="deleteFromLocalStorage('${escapeHtml(name)}')">✕</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ===== TEMPLATE JSON SAVE/LOAD =====
+        function saveTemplateJson() {
+            const fields = getFieldsFromUi();
+            if (fields.length === 0) { alert('Define at least one complete field before saving the template'); return; }
+            const template = { fields, instructions: document.getElementById('additionalRequest').value.trim() };
+            const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'extraction_template.json';
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+        }
+
+        function triggerTemplateLoad() {
+            document.getElementById('templateFileInput').click();
+        }
+
+        function normalizeTemplateToFields(templateData) {
+            if (Array.isArray(templateData.fields)) {
+                return templateData.fields
+                    .map(item => ({ key: (item?.key || '').toString().trim(), value: (item?.value || '').toString().trim() }))
+                    .filter(item => item.key && item.value);
+            }
+            if (templateData.fields && typeof templateData.fields === 'object') {
+                return Object.entries(templateData.fields)
+                    .map(([key, value]) => ({ key: key.toString().trim(), value: (value || '').toString().trim() }))
+                    .filter(item => item.key && item.value);
+            }
+            return [];
+        }
+
+        document.getElementById('templateFileInput').addEventListener('change', async function(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            try {
+                const content = await file.text();
+                const parsed = JSON.parse(content);
+                const fields = normalizeTemplateToFields(parsed);
+                if (fields.length === 0) { alert('Invalid template: no valid fields found.'); return; }
+                setFieldsInUi(fields);
+                if (typeof parsed.instructions === 'string') {
+                    document.getElementById('additionalRequest').value = parsed.instructions;
+                }
+                document.getElementById('presetSelect').value = '';
+            } catch (error) {
+                alert('❌ Unable to load template JSON. Please verify file format.');
+            } finally {
+                event.target.value = '';
+            }
+        });
+
+        // ===== SYSTEM PROMPT =====
+        function toggleSystemPrompt() {
+            const section = document.getElementById('systemPromptSection');
+            const toggle = document.getElementById('promptToggle');
+            if (section.style.display === 'none') { section.style.display = 'block'; toggle.textContent = '▼'; }
+            else { section.style.display = 'none'; toggle.textContent = '▶'; }
+        }
+
+        function resetSystemPrompt() {
+            document.getElementById('systemPrompt').value = DEFAULT_SYSTEM_PROMPT;
+        }
+
+        // ===== PROGRESS TRACKING =====
+        function startProgress(totalFiles) {
+            const container = document.getElementById('progressContainer');
+            container.classList.add('active');
+            document.getElementById('progressBarInner').style.width = '0%';
+            document.getElementById('progressFile').textContent = `0 / ${totalFiles} files`;
+            progressStartTime = Date.now();
+            updateProgressTimer();
+            progressTimerId = setInterval(updateProgressTimer, 1000);
+        }
+
+        function updateProgress(current, total, filename) {
+            const pct = Math.round((current / total) * 100);
+            document.getElementById('progressBarInner').style.width = pct + '%';
+            document.getElementById('progressFile').textContent = `${current} / ${total} — ${filename || ''}`;
+        }
+
+        function stopProgress() {
+            if (progressTimerId) { clearInterval(progressTimerId); progressTimerId = null; }
+            document.getElementById('progressContainer').classList.remove('active');
+        }
+
+        function updateProgressTimer() {
+            if (!progressStartTime) return;
+            const elapsed = Math.floor((Date.now() - progressStartTime) / 1000);
+            const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            document.getElementById('progressTimer').textContent = `${mins}:${secs}`;
+        }
+
+        // ===== EXTRACTION =====
+        let extractionAborted = false;
+
+        async function extractData() {
+            if (selectedFiles.length === 0) { alert('Please select at least one file'); return; }
             const fieldRows = document.querySelectorAll('.field-row');
             const fields = {};
             let hasEmptyField = false;
-
             fieldRows.forEach(row => {
                 const name = row.querySelector('.field-name').value.trim();
                 const description = row.querySelector('.field-description').value.trim();
-                
-                if (name && description) {
-                    fields[name] = description;
-                } else if (name || description) {
-                    hasEmptyField = true;
-                }
+                if (name && description) fields[name] = description;
+                else if (name || description) hasEmptyField = true;
             });
+            if (Object.keys(fields).length === 0) { alert('Please define at least one field with both name and description'); return; }
+            if (hasEmptyField) { alert('Please complete all fields or remove empty ones'); return; }
 
-            if (Object.keys(fields).length === 0) {
-                alert('Please define at least one field with both name and description');
-                return;
-            }
-
-            if (hasEmptyField) {
-                alert('Please complete all fields or remove empty ones');
-                return;
-            }
-
-            // Prepare form data
-            const formData = new FormData();
-            selectedFiles.forEach(file => {
-                formData.append('files', file);
-            });
-            formData.append('fields_to_extract', JSON.stringify(fields));
-
+            // Gather shared form options
             const additionalRequest = document.getElementById('additionalRequest').value.trim();
-            if (additionalRequest) {
-                formData.append('additional_request', additionalRequest);
-            }
+            const documentType = document.getElementById('documentType').value;
+            const systemPrompt = document.getElementById('systemPrompt').value.trim();
+            const strategy = document.getElementById('extractionStrategy').value;
+            const pageRange = document.getElementById('pageRange').value;
+            const handwriting = document.getElementById('handwritingMode').checked;
 
-            // Show loading
+            const totalFiles = selectedFiles.length;
+            extractionAborted = false;
+
+            // Show loading + progress
             document.getElementById('extractBtn').disabled = true;
+            document.getElementById('extractBtn').textContent = '⏹ Stop Extraction';
+            document.getElementById('extractBtn').onclick = () => { extractionAborted = true; };
+            document.getElementById('extractBtn').disabled = false;
             document.getElementById('loading').classList.add('active');
-            document.getElementById('results').classList.remove('active');
-            document.getElementById('results').innerHTML = '';
+            document.getElementById('loadingText').textContent = `Processing 1 / ${totalFiles} document(s)...`;
+            startProgress(totalFiles);
 
-            try {
-                const response = await fetch('/extract', {
-                    method: 'POST',
-                    body: formData
-                });
+            // Prepare validation panel immediately with placeholders
+            initIncrementalValidation(selectedFiles);
 
-                const data = await response.json();
+            let completedCount = 0;
+            let errors = [];
 
-                if (!response.ok) {
-                    throw new Error(data.error || 'Extraction failed');
+            for (let i = 0; i < totalFiles; i++) {
+                if (extractionAborted) {
+                    errors.push(`Skipped ${selectedFiles[i].name} (aborted by user)`);
+                    validationQueue[i].status = 'skipped';
+                    renderDocCard(i);
+                    continue;
                 }
 
-                // Store results for export
-                extractionResults = data;
-                displayResults(data);
+                const file = selectedFiles[i];
 
-            } catch (error) {
-                document.getElementById('results').innerHTML = `
-                    <div class="error">
-                        <strong>Error:</strong> ${error.message}
-                    </div>
-                `;
-                document.getElementById('results').classList.add('active');
-            } finally {
-                document.getElementById('extractBtn').disabled = false;
-                document.getElementById('loading').classList.remove('active');
+                // Mark current file as processing
+                validationQueue[i].status = 'processing';
+                renderDocCard(i);
+                document.getElementById('loadingText').textContent = `Processing ${i + 1} / ${totalFiles}: ${file.name}`;
+                updateProgress(i, totalFiles, file.name);
+
+                try {
+                    // Build per-file FormData
+                    const formData = new FormData();
+                    formData.append('files', file);
+                    formData.append('fields_to_extract', JSON.stringify(fields));
+                    if (additionalRequest) formData.append('additional_request', additionalRequest);
+                    if (documentType) formData.append('document_type', documentType);
+                    if (systemPrompt) formData.append('system_prompt', systemPrompt);
+                    if (strategy) formData.append('extraction_strategy', strategy);
+                    if (pageRange) formData.append('page_range', pageRange);
+                    if (handwriting) formData.append('handwriting_mode', 'true');
+
+                    const response = await fetch('/extract', { method: 'POST', body: formData });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Extraction failed');
+
+                    // data is an array with one result
+                    const result = data[0];
+                    // Update the placeholder in the queue with real data
+                    validationQueue[i].extraction = result.extraction;
+                    validationQueue[i].preview_images = result.preview_images || [];
+                    validationQueue[i].duration = result.duration_seconds || null;
+                    validationQueue[i].status = 'done';
+                    completedCount++;
+
+                    // Refresh UI
+                    renderDocCard(i);
+                    // Auto-select first completed file
+                    if (completedCount === 1) {
+                        currentDocIndex = i;
+                        renderCurrentDoc();
+                    }
+                    updateValidationProgress();
+
+                } catch (error) {
+                    console.error(`Error extracting ${file.name}:`, error);
+                    validationQueue[i].status = 'error';
+                    validationQueue[i].errorMsg = error.message;
+                    errors.push(`${file.name}: ${error.message}`);
+                    renderDocCard(i);
+                }
+            }
+
+            // Finalize
+            updateProgress(totalFiles, totalFiles, 'Complete!');
+            document.getElementById('loading').classList.remove('active');
+            stopProgress();
+            document.getElementById('extractBtn').disabled = false;
+            document.getElementById('extractBtn').textContent = '🚀 Extract Data';
+            document.getElementById('extractBtn').onclick = extractData;
+
+            if (errors.length > 0) {
+                alert(`⚠️ ${completedCount} / ${totalFiles} extracted successfully.\n\nErrors:\n${errors.join('\n')}`);
             }
         }
 
-        function displayResults(data) {
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = `
-                <div class="results-header">
-                    <h2 class="section-title">Extraction Results</h2>
-                    <button class="btn-export-excel" onclick="exportToExcel()">
-                        📊 Export to Excel
-                    </button>
-                </div>
-            `;
+        // ===== VALIDATION UI =====
 
-            data.forEach(result => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'result-item';
+        /**
+         * Save edited fields from current view back to validationQueue before switching.
+         */
+        function saveCurrentEdits() {
+            const idx = currentDocIndex;
+            const item = validationQueue[idx];
+            if (!item || item.status !== 'done') return;
+            const fieldsDiv = document.getElementById('currentFields');
+            if (!fieldsDiv) return;
+            const inputs = fieldsDiv.querySelectorAll('.editable-field-input');
+            if (inputs.length === 0) return;
+            const editedData = {};
+            inputs.forEach(input => { editedData[input.dataset.field] = input.value; });
+            item.editedData = editedData;
+        }
 
-                const extraction = result.extraction.extraction_results || {};
-                let fieldsHtml = '';
+        /**
+         * Initialize the validation panel with placeholder items for all files.
+         */
+        function initIncrementalValidation(files) {
+            validationQueue = files.map(file => ({
+                filename: file.name,
+                extraction: null,
+                preview_images: [],
+                validated: false,
+                editedData: null,
+                duration: null,
+                status: 'waiting',
+                currentPage: 0
+            }));
+            currentDocIndex = 0;
 
-                // Add filename as first field automatically
-                fieldsHtml += `
-                    <div class="result-field">
-                        <div class="result-field-name">📄 Filename</div>
-                        <div class="result-field-value">${result.filename}</div>
-                    </div>
-                `;
+            document.getElementById('validationEmptyState').style.display = 'none';
+            document.getElementById('validationActive').style.display = 'flex';
 
-                if (extraction.data) {
-                    for (const [key, value] of Object.entries(extraction.data)) {
-                        fieldsHtml += `
-                            <div class="result-field">
-                                <div class="result-field-name">${key}</div>
-                                <div class="result-field-value">${value !== null ? value : '<em>Not found</em>'}</div>
+            renderFileTabs();
+            renderCurrentDoc();
+        }
+
+        /** Legacy: build all at once */
+        function buildValidationUI(data) {
+            validationQueue = data.map(result => ({
+                filename: result.filename,
+                extraction: result.extraction,
+                preview_images: result.preview_images || [],
+                validated: false,
+                editedData: null,
+                duration: result.duration_seconds || null,
+                status: 'done',
+                currentPage: 0
+            }));
+            currentDocIndex = 0;
+
+            document.getElementById('validationEmptyState').style.display = 'none';
+            document.getElementById('validationActive').style.display = 'flex';
+
+            renderFileTabs();
+            renderCurrentDoc();
+        }
+
+        /**
+         * Render the file selector tabs.
+         */
+        function renderFileTabs() {
+            const bar = document.getElementById('fileTabsBar');
+            bar.innerHTML = '';
+            validationQueue.forEach((item, idx) => {
+                const tab = document.createElement('button');
+                tab.className = 'file-tab' +
+                    (idx === currentDocIndex ? ' active' : '') +
+                    (item.validated ? ' tab-validated' : '');
+
+                let badgeClass, badgeText;
+                if (item.validated) { badgeClass = 'validated'; badgeText = '✓'; }
+                else if (item.status === 'processing') { badgeClass = 'processing'; badgeText = '…'; }
+                else if (item.status === 'error') { badgeClass = 'pending'; badgeText = '!'; }
+                else if (item.status === 'done') { badgeClass = 'pending'; badgeText = '●'; }
+                else { badgeClass = 'waiting'; badgeText = '○'; }
+
+                // Shorten filename for tab
+                let shortName = item.filename;
+                if (shortName.length > 22) shortName = shortName.substring(0, 19) + '…';
+
+                tab.innerHTML = `<span class="tab-num">${idx + 1}</span> ${escapeHtml(shortName)} <span class="q-badge ${badgeClass}">${badgeText}</span>`;
+                tab.onclick = () => selectDoc(idx);
+                bar.appendChild(tab);
+            });
+            updateValidationProgress();
+        }
+
+        /**
+         * Select a document by index.
+         */
+        function selectDoc(idx) {
+            if (idx < 0 || idx >= validationQueue.length) return;
+            saveCurrentEdits();
+            currentDocIndex = idx;
+            renderFileTabs();
+            renderCurrentDoc();
+        }
+
+        /**
+         * Render the detail view for the currently selected document.
+         */
+        function renderCurrentDoc() {
+            const detail = document.getElementById('validationDetail');
+            const item = validationQueue[currentDocIndex];
+            const idx = currentDocIndex;
+
+            if (!item) { detail.innerHTML = ''; return; }
+
+            let html = '';
+
+            if (item.status === 'waiting') {
+                html = `<div style="padding: 60px 20px; text-align: center; color: #4a5080; font-size: 0.95em;">⏳ Waiting for extraction…</div>`;
+            } else if (item.status === 'processing') {
+                html = `<div style="padding: 60px 20px; text-align: center; color: #667eea; font-size: 0.95em;">⏳ Extracting data…</div>`;
+            } else if (item.status === 'skipped') {
+                html = `<div style="padding: 60px 20px; text-align: center; color: #6c757d; font-size: 0.95em;">Skipped</div>`;
+            } else if (item.status === 'error') {
+                html = `<div style="padding: 40px 20px; color: #e74c3c; font-size: 0.95em; text-align:center;">❌ ${escapeHtml(item.errorMsg || 'Extraction failed')}</div>`;
+            } else {
+                // status === 'done'
+                // Image toggle
+                if (item.preview_images && item.preview_images.length > 0) {
+                    const page = item.currentPage || 0;
+                    const pageControlsHTML = item.preview_images.length > 1 ? `
+                        <div class="page-controls">
+                            <button class="page-btn" onclick="switchPage(-1)">◀</button>
+                            <span class="page-label" id="currentPageLabel">Page ${page + 1} / ${item.preview_images.length}</span>
+                            <button class="page-btn" onclick="switchPage(1)">▶</button>
+                        </div>` : '';
+                    html += `
+                        <button class="btn-toggle-image" id="toggleImgBtn" onclick="toggleDocImage()">
+                            <span class="toggle-arrow">▶</span> Show Source Document
+                        </button>
+                        <div class="doc-image-wrapper" id="imgWrapper">
+                            <div class="v-panel-header">
+                                <span class="v-panel-title">Source Document</span>
+                                ${pageControlsHTML}
                             </div>
-                        `;
-                    }
+                            <div class="doc-image-area" id="imgArea" onclick="toggleZoom()">
+                                <img id="currentImg" src="data:image/jpeg;base64,${item.preview_images[page]}" alt="Preview">
+                            </div>
+                            <p class="doc-hint">Click image to zoom • Scroll to pan</p>
+                        </div>`;
                 }
 
-                let additionalResultHtml = '';
-                if (extraction.additional_request_result) {
-                    additionalResultHtml = `
-                        <div class="result-field">
-                            <div class="result-field-name">Additional Request Result</div>
-                            <div class="result-field-value">${extraction.additional_request_result}</div>
-                        </div>
-                    `;
-                }
+                // Fields
+                html += buildFieldsHTML(item, idx);
 
-                resultItem.innerHTML = `
-                    <div class="result-filename">📄 ${result.filename}</div>
-                    <div class="result-data">
-                        ${fieldsHtml}
-                        ${additionalResultHtml}
-                    </div>
-                    <div class="result-confidence">
-                        <strong>Confidence:</strong> ${extraction.confidence_score || 'N/A'}%<br>
-                        <strong>Reasoning:</strong> ${extraction.reasoning || 'N/A'}
-                    </div>
-                `;
+                // Action bar: Validate + Prev/Next
+                const vBtnClass = item.validated ? 'btn-validate-data is-validated' : 'btn-validate-data';
+                const vBtnText = item.validated ? '✓ VALIDATED' : '✓ VALIDATE DATA';
+                const prevDisabled = idx <= 0 ? 'disabled' : '';
+                const nextDisabled = idx >= validationQueue.length - 1 ? 'disabled' : '';
+                html += `
+                    <div class="detail-action-bar">
+                        <button class="nav-btn" onclick="selectDoc(${idx - 1})" ${prevDisabled}>◀ Prev</button>
+                        <button class="${vBtnClass}" onclick="validateCurrentDoc()">${vBtnText}</button>
+                        <button class="nav-btn" onclick="selectDoc(${idx + 1})" ${nextDisabled}>Next ▶</button>
+                    </div>`;
+            }
 
-                resultsDiv.appendChild(resultItem);
+            detail.innerHTML = html;
+            // Scroll to top
+            detail.scrollTop = 0;
+        }
+
+        /**
+         * Build editable fields HTML.
+         */
+        function buildFieldsHTML(item, idx) {
+            const extraction = item.extraction && item.extraction.extraction_results;
+            const rawData = extraction && extraction.data ? extraction.data : {};
+            const displayData = item.editedData || rawData;
+
+            const inputFieldOrder = Array.from(document.querySelectorAll('.field-row'))
+                .map(row => row.querySelector('.field-name').value.trim().toLowerCase());
+            const allKeys = Object.keys(displayData);
+            const fieldNames = allKeys.slice().sort((a, b) => {
+                const idxA = inputFieldOrder.indexOf(a.toLowerCase());
+                const idxB = inputFieldOrder.indexOf(b.toLowerCase());
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return 0;
             });
 
-            resultsDiv.classList.add('active');
+            if (fieldNames.length === 0) {
+                return '<div style="padding: 16px; color: #4a5080; font-size: 0.85em;">No fields extracted.</div>';
+            }
+
+            let html = `<div class="v-panel-header"><span class="v-panel-title">Extracted Fields</span><span class="v-panel-subtitle">&nbsp;(edit to validate)</span></div>`;
+            html += `<div class="editable-fields-list" id="currentFields">`;
+
+            fieldNames.forEach(fieldName => {
+                let value = displayData[fieldName];
+                if (value && typeof value === 'object' && 'value' in value) value = value.value;
+                if (value === null || value === undefined) value = '';
+                html += `
+                    <div class="editable-field-row" data-field="${escapeHtml(fieldName)}">
+                        <span class="editable-field-label" title="${escapeHtml(fieldName)}">${escapeHtml(fieldName)}</span>
+                        <input type="text" class="editable-field-input" value="${escapeHtml(String(value))}" placeholder="Not found" data-field="${escapeHtml(fieldName)}" data-doc="${idx}">
+                    </div>`;
+            });
+
+            html += '</div>';
+
+            // Confidence bar
+            if (extraction && extraction.confidence_score !== undefined) {
+                const score = parseInt(extraction.confidence_score) || 0;
+                const level = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';
+                html += `<div class="confidence-bar-container"><span class="confidence-bar-label">AI Confidence</span><div class="confidence-bar-track"><div class="confidence-bar-fill ${level}" style="width: ${score}%"></div></div><span class="confidence-bar-value ${level}">${score}%</span></div>`;
+                if (extraction.reasoning) {
+                    html += `<div style="padding: 6px 14px; font-size: 0.72em; color: #4a5080; font-style:italic;">${escapeHtml((extraction.reasoning || '').substring(0, 180))}</div>`;
+                }
+            }
+
+            // Duration
+            if (item.duration) {
+                html += `<div style="padding: 6px 14px; font-size: 0.72em; color: #6674a8; border-top: 1px solid #252a40;">⏱ Extraction time: <strong>${item.duration.toFixed(1)}s</strong></div>`;
+            }
+
+            return html;
         }
 
+        // --- Image / page controls ---
+        function toggleDocImage() {
+            const wrapper = document.getElementById('imgWrapper');
+            const btn = document.getElementById('toggleImgBtn');
+            if (!wrapper || !btn) return;
+            const isOpen = wrapper.classList.toggle('open');
+            if (isOpen) {
+                btn.classList.add('expanded');
+                btn.innerHTML = '<span class="toggle-arrow">▶</span> Hide Source Document';
+            } else {
+                btn.classList.remove('expanded');
+                btn.innerHTML = '<span class="toggle-arrow">▶</span> Show Source Document';
+            }
+        }
+
+        function toggleZoom() {
+            const area = document.getElementById('imgArea');
+            if (area) area.classList.toggle('zoomed');
+        }
+
+        function switchPage(direction) {
+            const item = validationQueue[currentDocIndex];
+            if (!item || !item.preview_images) return;
+            let page = (item.currentPage || 0) + direction;
+            if (page < 0 || page >= item.preview_images.length) return;
+            item.currentPage = page;
+            const img = document.getElementById('currentImg');
+            if (img) img.src = 'data:image/jpeg;base64,' + item.preview_images[page];
+            const label = document.getElementById('currentPageLabel');
+            if (label) label.textContent = `Page ${page + 1} / ${item.preview_images.length}`;
+            const area = document.getElementById('imgArea');
+            if (area) area.classList.remove('zoomed');
+        }
+
+        // --- Validate ---
+        function validateCurrentDoc() {
+            const idx = currentDocIndex;
+            const item = validationQueue[idx];
+            if (!item) return;
+
+            saveCurrentEdits();
+            item.validated = true;
+
+            // Visual flash
+            const fieldsDiv = document.getElementById('currentFields');
+            if (fieldsDiv) {
+                fieldsDiv.querySelectorAll('.editable-field-row').forEach(row => {
+                    row.classList.add('flash-validated');
+                    setTimeout(() => row.classList.remove('flash-validated'), 700);
+                });
+            }
+
+            renderFileTabs();
+            // Re-render detail to update button
+            setTimeout(() => {
+                renderCurrentDoc();
+
+                // Auto-export if all validated
+                const allValidated = validationQueue.every(q => q.validated);
+                if (allValidated && document.getElementById('autoExport').checked) {
+                    setTimeout(() => exportToExcel(), 500);
+                    return;
+                }
+
+                // Auto-advance to next unvalidated
+                const nextUnvalidated = validationQueue.findIndex((q, i) => i > idx && !q.validated && q.status === 'done');
+                if (nextUnvalidated !== -1) {
+                    setTimeout(() => selectDoc(nextUnvalidated), 300);
+                }
+            }, 400);
+        }
+
+        /** Legacy aliases */
+        function validateCard(idx) { selectDoc(idx); setTimeout(() => validateCurrentDoc(), 100); }
+        function validateCurrent() { validateCurrentDoc(); }
+        function navDoc(direction) { selectDoc(currentDocIndex + direction); }
+        function renderEditableFields() {}
+
+        /** Render all — used after incremental extraction updates a single item */
+        function renderAllCards() { renderFileTabs(); renderCurrentDoc(); }
+        function renderQueueBar() { renderFileTabs(); renderCurrentDoc(); }
+        function renderDocCard(idx) {
+            renderFileTabs();
+            if (idx === currentDocIndex) renderCurrentDoc();
+        }
+
+        function showDocument(index) {
+            if (index < 0 || index >= validationQueue.length) return;
+            selectDoc(index);
+        }
+
+        function closeValidation() {
+            document.getElementById('validationActive').style.display = 'none';
+            document.getElementById('validationEmptyState').style.display = 'flex';
+        }
+
+        function updateValidationProgress() {
+            const total = validationQueue.length;
+            const extracted = validationQueue.filter(q => q.status === 'done' || q.status === 'error').length;
+            const validated = validationQueue.filter(q => q.validated).length;
+            let text;
+            if (extracted < total) {
+                text = `${extracted}/${total} extracted · ${validated}/${total} validated`;
+            } else {
+                text = `${validated} / ${total} validated`;
+            }
+            const el1 = document.getElementById('validationProgress');
+            const el2 = document.getElementById('validationProgressFooter');
+            if (el1) el1.textContent = text;
+            if (el2) el2.textContent = text;
+        }
+
+        // ===== EXCEL EXPORT =====
         async function exportToExcel() {
-            if (!extractionResults || extractionResults.length === 0) {
-                alert('No results to export');
+            if (!validationQueue || validationQueue.length === 0) {
+                alert('No results to export. Run extraction first.');
                 return;
             }
+
+            // Build payload: use editedData if validated, else use original extraction data
+            const resultsPayload = validationQueue.map(item => {
+                const extraction = item.extraction && item.extraction.extraction_results;
+                return {
+                    filename: item.filename,
+                    validated: item.validated,
+                    edited_data: item.editedData || null,
+                    extraction: item.extraction
+                };
+            });
+
+            const validatedCount = validationQueue.filter(q => q.validated).length;
+            const msg = validatedCount === validationQueue.length
+                ? `Export ${validationQueue.length} documents (all validated)?`
+                : `Export ${validationQueue.length} documents (${validatedCount} validated, ${validationQueue.length - validatedCount} still pending)?`;
+            if (!confirm(msg)) return;
 
             try {
                 const response = await fetch('/export-excel', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        results: extractionResults
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ results: resultsPayload })
                 });
-
-                if (!response.ok) {
-                    throw new Error('Export failed');
-                }
-
-                // Download the file
+                if (!response.ok) throw new Error('Export failed');
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                
-                // Get filename from response header or use default
                 const contentDisposition = response.headers.get('Content-Disposition');
                 let filename = 'extraction_results.xlsx';
                 if (contentDisposition) {
-                    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                    if (filenameMatch && filenameMatch[1]) {
-                        filename = filenameMatch[1].replace(/['"]/g, '');
-                    }
+                    const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (match && match[1]) filename = match[1].replace(/['"]/g, '');
                 }
-                
                 a.download = filename;
-                document.body.appendChild(a);
-                a.click();
+                document.body.appendChild(a); a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-
-                // Show success message
-                alert('✅ Excel file exported successfully!');
-
+                alert(`✅ Excel exported: ${validationQueue.length} rows (${validatedCount} marked "Yes" in Validated column)`);
             } catch (error) {
-                console.error('Export error:', error);
-                alert('❌ Failed to export Excel file: ' + error.message);
+                alert('❌ Failed to export Excel: ' + error.message);
             }
         }
     </script>

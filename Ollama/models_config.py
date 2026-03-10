@@ -1,6 +1,5 @@
-"""
-Vision Models Configuration for Document Data Extraction
-Primary families: Gemma3, Llama Vision, and LLaVA (OCR-oriented)
+"""Vision Models Configuration for Document Data Extraction
+Primary families: GLM OCR, DeepSeek OCR, Gemma3, Llama Vision, LLaVA
 Categorized by hardware requirements; also exposes a family/tier mapping for UI selection.
 """
 
@@ -9,6 +8,17 @@ VISION_MODELS = {
     "lightweight": {
         "description": "Best for CPU-only or systems with very limited GPU memory (< 4GB VRAM)",
         "models": [
+            {
+                "name": "glm-ocr:latest",
+                "display_name": "GLM-OCR",
+                "size": "~2.2GB",
+                "vram": "~2-3GB",
+                "speed": "Very Fast",
+                "accuracy": "Outstanding",
+                "description": "#1 on OmniDocBench V1.5 (94.62). Purpose-built OCR model: 0.9B parameters, 128K context. Clean text output, no dotted-spelling artefacts. Works on any GPU.",
+                "use_case": "Recommended OCR model for all hardware — forms, tables, handwriting",
+                "recommended": True
+            },
             {
                 "name": "gemma3:270m",
                 "display_name": "Gemma3 270M",
@@ -27,6 +37,17 @@ VISION_MODELS = {
         "description": "Best for systems with moderate GPU memory (6-8GB VRAM)",
         "models": [
             {
+                "name": "deepseek-ocr:latest",
+                "display_name": "DeepSeek OCR (Latest)",
+                "size": "~4-6GB",
+                "vram": "6-8GB",
+                "speed": "Fast-Medium",
+                "accuracy": "Very Good",
+                "description": "OCR-specialized vision model for printed and handwritten document extraction.",
+                "use_case": "High-quality OCR-first extraction workflows",
+                "recommended": True
+            },
+            {
                 "name": "gemma3:4b",
                 "display_name": "Gemma3 4B",
                 "size": "~3GB",
@@ -36,6 +57,17 @@ VISION_MODELS = {
                 "description": "Balanced Gemma3 model. Good compromise of speed and quality.",
                 "use_case": "General document extraction on mid-range GPUs",
                 "recommended": True
+            },
+            {
+                "name": "qwen3-vl:8b",
+                "display_name": "Qwen3 VL 8B",
+                "size": "~5GB",
+                "vram": "7-8GB",
+                "speed": "Medium",
+                "accuracy": "Very Good",
+                "description": "Alibaba's vision-language model with strong multilingual OCR. Thinking model — supports /no_think for speed.",
+                "use_case": "Multilingual document extraction",
+                "recommended": False
             },
             {
                 "name": "llava-phi3:3.8b",
@@ -135,23 +167,23 @@ HARDWARE_RECOMMENDATIONS = {
     },
     "gpu_4gb": {
         "category": "lightweight",
-        "recommended_models": ["gemma3:270m"],
-        "note": "Limited VRAM. Stick to lightweight Gemma3."
+        "recommended_models": ["glm-ocr:latest", "gemma3:270m"],
+        "note": "GLM-OCR fits comfortably in 4GB and benchmarks #1 for OCR."
     },
     "gpu_6gb": {
         "category": "medium",
-        "recommended_models": ["gemma3:4b", "llava-phi3:3.8b"],
-        "note": "Good balance of speed and accuracy for most documents."
+        "recommended_models": ["glm-ocr:latest", "deepseek-ocr:latest", "gemma3:4b", "llava-phi3:3.8b"],
+        "note": "GLM-OCR is the best OCR choice; deepseek-ocr is a solid alternative."
     },
     "gpu_8gb": {
         "category": "medium",
-        "recommended_models": ["gemma3:4b", "llava:7b"],
-        "note": "Optimal for general document extraction tasks."
+        "recommended_models": ["glm-ocr:latest", "deepseek-ocr:latest", "gemma3:4b", "qwen3-vl:8b", "llava:7b"],
+        "note": "GLM-OCR or deepseek-ocr for OCR tasks; gemma3:4b for reasoning-heavy extraction; qwen3-vl for multilingual."
     },
     "gpu_12gb": {
         "category": "large",
-        "recommended_models": ["llama3.2-vision:11b", "gemma3:12b", "llava:13b"],
-        "note": "High accuracy for professional use."
+        "recommended_models": ["glm-ocr:latest", "llama3.2-vision:11b", "gemma3:12b", "qwen3-vl:8b", "llava:13b"],
+        "note": "GLM-OCR leaves 9GB free; llama3.2-vision:11b for complex reasoning; qwen3-vl for multilingual."
     },
     "gpu_16gb": {
         "category": "large",
@@ -226,6 +258,30 @@ def get_family_tiers():
                 "small": "llava-phi3:3.8b",
                 "medium": "llava:7b",
                 "large": "llava:13b"
+            }
+        },
+        "glm_ocr": {
+            "label": "GLM-OCR (#1 OmniDocBench)",
+            "tiers": {
+                "small": "glm-ocr:latest",
+                "medium": None,
+                "large": None
+            }
+        },
+        "deepseek_ocr": {
+            "label": "DeepSeek OCR",
+            "tiers": {
+                "small": None,
+                "medium": "deepseek-ocr:latest",
+                "large": None
+            }
+        },
+        "qwen3vl": {
+            "label": "Qwen3 VL (Multilingual)",
+            "tiers": {
+                "small": "qwen3-vl:8b",
+                "medium": None,
+                "large": None
             }
         }
     }

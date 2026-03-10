@@ -1,9 +1,10 @@
 import os
 import json
+import subprocess
+import time
 from flask import Flask, request, jsonify, render_template, send_file
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
-import hashlib
 from dotenv import load_dotenv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -16,7 +17,7 @@ load_dotenv()
 
 from processor import (
     process_document,
-    extract_structured_data_with_ollama
+    extract_structured_data_with_ollama,
 )
 from models_config import (
     VISION_MODELS,
@@ -33,31 +34,12 @@ CORS(app)
 # Configuration
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 UPLOAD_FOLDER = 'temp_uploads'
-# CACHE_FOLDER = 'cache'  # Cache system disabled
 
 # Ensure folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-# os.makedirs(CACHE_FOLDER, exist_ok=True)  # Cache system disabled
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Cache functions disabled - cache system removed for testing
-# def get_file_hash(file_content):
-#     """Generate hash for file caching"""
-#     return hashlib.sha256(file_content).hexdigest()
-
-# def get_cache_key(file_hash, fields_to_extract, additional_request=None, model=None):
-#     """Generate cache key combining file hash, extraction parameters, and model"""
-#     ...
-
-# def get_cached_result(cache_key):
-#     """Retrieve cached result if exists"""
-#     ...
-
-# def save_result_to_cache(cache_key, result):
-#     """Save result to cache"""
-#     ...
 
 @app.route('/')
 def index():
@@ -97,7 +79,7 @@ def ollama_status():
 
 @app.route('/models/available', methods=['GET'])
 def get_available_models():
-    """Get ONLY vision-capable models installed in Ollama"""
+    """Get ALL models installed in Ollama, marking which are truly vision-capable"""
     ollama_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
     try:
         response = requests.get(f"{ollama_url}/api/tags", timeout=5)
@@ -107,70 +89,129 @@ def get_available_models():
         data = response.json()
         installed_models = data.get('models', [])
         
-        # Filter and return ONLY vision models
-        vision_models = []
+        # Return ALL models with their info
+        all_models = []
         for model in installed_models:
             model_name = model.get('name', '')
             details = model.get('details', {})
-            families = details.get('families', [])
             
-            # Check if vision-capable using same logic as is_vision_model()
+            # Detect if model is vision-capable
+            # Primary: use 'capabilities' from /api/show (Ollama ≥ 0.8)
+            # Fallback: CLIP families, projector_info, model_info vision keys, name keywords
             is_vision = False
+            capabilities = []
             
-            # Method 1: Check if 'clip' in families (most reliable)
-            if 'clip' in families:
-                is_vision = True
-            
-            # Method 2: Try to get detailed info from /api/show
-            if not is_vision:
-                try:
-                    show_response = requests.post(
-                        f"{ollama_url}/api/show",
-                        json={"name": model_name},
-                        timeout=3
-                    )
-                    if show_response.status_code == 200:
-                        show_data = show_response.json()
-                        # Check for projector_info (multimodal projector)
+            try:
+                show_response = requests.post(
+                    f"{ollama_url}/api/show",
+                    json={"name": model_name},
+                    timeout=5
+                )
+                if show_response.status_code == 200:
+                    show_data = show_response.json()
+                    capabilities = show_data.get('capabilities', [])
+                    
+                    # Primary: capabilities field
+                    if 'vision' in capabilities:
+                        is_vision = True
+                        print(f"✅ {model_name}: vision model (capabilities={capabilities})")
+                    elif capabilities and 'vision' not in capabilities:
+                        print(f"❌ {model_name}: text-only (capabilities={capabilities})")
+                    else:
+                        # Fallback: projector_info or CLIP
                         if 'projector_info' in show_data:
                             is_vision = True
-                        # Double check families from show response
-                        show_details = show_data.get('details', {})
-                        show_families = show_details.get('families', [])
-                        if 'clip' in show_families:
-                            is_vision = True
-                except:
-                    pass  # Ignore errors, fallback to other checks
+                            print(f"✅ {model_name}: vision model (has projector)")
+                        else:
+                            show_details = show_data.get('details', {})
+                            families = show_details.get('families', [])
+                            if 'clip' in families:
+                                is_vision = True
+                                print(f"✅ {model_name}: vision model (has CLIP)")
+                            else:
+                                # Check model_info for vision keys
+                                model_info = show_data.get('model_info', {})
+                                if any('.vision.' in k for k in model_info.keys()):
+                                    is_vision = True
+                                    print(f"✅ {model_name}: vision model (vision keys in model_info)")
+            except Exception as e:
+                print(f"Warning: Could not check {model_name}: {e}")
             
-            # Method 3: Fallback - check known vision families
-            if not is_vision:
-                family = details.get('family', '').lower()
-                vision_families = ['mllama', 'llava', 'bakllava', 'gemma3', 'gemma2']
-                if family in vision_families or any(f in vision_families for f in families):
-                    is_vision = True
-            
-            # Method 4: Last resort - check model name keywords
-            if not is_vision:
+            # Last-resort fallback: known vision keywords in model name
+            if not is_vision and not capabilities:
                 model_lower = model_name.lower()
-                if any(keyword in model_lower for keyword in ['vision', 'llava', 'bakllava']):
+                if any(kw in model_lower for kw in ['llava', 'vision', '-vl', 'bakllava', 'deepseek-ocr', 'deepseek-vl', 'glm-ocr']):
                     is_vision = True
+                    print(f"✅ {model_name}: vision model (name match)")
             
-            # Only add vision models to the list
-            if is_vision:
-                vision_models.append({
-                    'name': model_name,
-                    'size': model.get('size', 0),
-                    'modified_at': model.get('modified_at', ''),
-                    'parameter_size': details.get('parameter_size', 'Unknown'),
-                    'family': details.get('family', 'Unknown'),
-                    'quantization': details.get('quantization_level', 'Unknown'),
-                    'is_vision': True
-                })
-        
-        return jsonify({'models': vision_models}), 200
+            all_models.append({
+                'name': model_name,
+                'size': model.get('size', 0),
+                'modified_at': model.get('modified_at', ''),
+                'parameter_size': details.get('parameter_size', 'Unknown'),
+                'family': details.get('family', 'Unknown'),
+                'quantization': details.get('quantization_level', 'Unknown'),
+                'is_vision': is_vision
+            })
+
+        return jsonify({'models': all_models}), 200
     
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Could not connect to Ollama: {str(e)}"}), 500
+
+@app.route('/gpu/detect', methods=['GET'])
+def detect_gpu():
+    """Auto-detect GPU(s) and VRAM via nvidia-smi.
+    Returns per-GPU info plus a recommended default model based on total VRAM."""
+    try:
+        result = subprocess.run(
+            ['nvidia-smi', '--query-gpu=index,name,memory.total,memory.free,memory.used',
+             '--format=csv,noheader,nounits'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode != 0:
+            return jsonify({"gpus": [], "total_vram_mb": 0, "recommended_model": None,
+                            "error": "nvidia-smi failed"}), 200
+
+        gpus = []
+        for line in result.stdout.strip().splitlines():
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 5:
+                gpus.append({
+                    "index": int(parts[0]),
+                    "name": parts[1],
+                    "total_mb": int(parts[2]),
+                    "free_mb": int(parts[3]),
+                    "used_mb": int(parts[4]),
+                })
+
+        total_vram = sum(g["total_mb"] for g in gpus)
+        total_vram_gb = total_vram / 1024
+
+        # Pick recommended model by total VRAM
+        if total_vram_gb >= 20:
+            recommended = "gemma3:27b"
+        elif total_vram_gb >= 11:
+            recommended = "gemma3:12b"
+        elif total_vram_gb >= 6:
+            recommended = "gemma3:4b"
+        elif total_vram_gb >= 3:
+            recommended = "glm-ocr:latest"
+        else:
+            recommended = "gemma3:270m"
+
+        return jsonify({
+            "gpus": gpus,
+            "total_vram_mb": total_vram,
+            "total_vram_gb": round(total_vram_gb, 1),
+            "recommended_model": recommended,
+        }), 200
+    except FileNotFoundError:
+        return jsonify({"gpus": [], "total_vram_mb": 0, "recommended_model": "gemma3:270m",
+                        "error": "nvidia-smi not found (no NVIDIA GPU?)"}), 200
+    except Exception as e:
+        return jsonify({"gpus": [], "total_vram_mb": 0, "recommended_model": None,
+                        "error": str(e)}), 200
 
 @app.route('/models/catalog', methods=['GET'])
 def get_models_catalog():
@@ -182,7 +223,7 @@ def get_models_catalog():
 
 @app.route('/models/families', methods=['GET'])
 def get_models_families():
-    """Return model families (Gemma3, Llama Vision, LLaVA) with small/medium/large tiers and installed flags"""
+    """Return model families (Gemma3, Llama Vision, LLaVA, DeepSeek OCR) with small/medium/large tiers and installed flags"""
     try:
         ollama_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
         installed_models = []
@@ -283,9 +324,10 @@ def get_models_families():
                     }
                 else:
                     meta = meta_by_name.get(model_name, {})
+                    installed_flag = is_model_installed(model_name)
                     tiers[tier] = {
                         'model': model_name,
-                        'installed': is_model_installed(model_name),
+                        'installed': installed_flag,
                         'display_name': meta.get('display_name', model_name),
                         'size': meta.get('size'),
                         'vram': meta.get('vram'),
@@ -296,6 +338,7 @@ def get_models_families():
                     }
             result[key] = {
                 'label': fam.get('label', key),
+                'requires_hf': fam.get('requires_hf', False),
                 'tiers': tiers
             }
 
@@ -392,7 +435,7 @@ def get_recommended_models():
 @app.route('/models/current', methods=['GET'])
 def get_current_model():
     """Get currently configured model"""
-    current_model = os.environ.get('OLLAMA_MODEL', 'llama3.2-vision')
+    current_model = os.environ.get('OLLAMA_MODEL', 'llama3.2-vision:11b')
     return jsonify({
         "current_model": current_model,
         "ollama_url": os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
@@ -406,7 +449,7 @@ def set_model():
     
     if not model_name:
         return jsonify({"error": "Model name is required"}), 400
-    
+
     # Normalize model name to match installed version
     # e.g., llama3.2-vision:11b -> llama3.2-vision:latest if that's what's installed
     normalized_model = normalize_model_name(model_name)
@@ -492,17 +535,6 @@ def normalize_model_name(target_model):
         "message": "Model updated for current session"
     }), 200
 
-# Cache endpoints disabled - cache system removed for testing
-# @app.route('/cache/clear', methods=['POST'])
-# def clear_cache():
-#     """Clear all cached results"""
-#     ...
-
-# @app.route('/cache/stats', methods=['GET'])
-# def cache_stats():
-#     """Get cache statistics"""
-#     ...
-
 @app.route('/extract', methods=['POST'])
 def extract_data_route():
     """Main extraction endpoint"""
@@ -527,11 +559,25 @@ def extract_data_route():
         return jsonify({"error": "Invalid format for 'fields_to_extract'. Must be JSON {field: description}"}), 400
 
     additional_request = request.form.get('additional_request', None)
+    document_type = request.form.get('document_type', None)
+    system_prompt = request.form.get('system_prompt', None)
+    extraction_strategy = request.form.get('extraction_strategy', 'auto')  # auto | single_pass | ocr_then_extract
+    handwriting_mode = request.form.get('handwriting_mode', 'false').lower() in ('true', '1', 'yes')
+    page_range = request.form.get('page_range', 'all')  # all | first | N (int)
+    model_override = request.form.get('model', None)  # per-request model override
+
+    # Apply per-request model override if provided
+    original_model = None
+    if model_override:
+        original_model = os.environ.get('OLLAMA_MODEL')
+        os.environ['OLLAMA_MODEL'] = model_override
+        print(f"Per-request model override: {model_override}")
 
     results = []
     try:
         for file in files:
             if file and allowed_file(file.filename):
+                file_start = time.time()
                 print(f"Processing file: {file.filename}")
 
                 # Save file temporarily
@@ -542,17 +588,51 @@ def extract_data_route():
                 try:
                     # Process document (extract text/image)
                     document_content = process_document(filepath, file.mimetype)
-                    
+
+                    # Apply page_range filtering for PDFs
+                    if document_content.get("type") == "pdf" and page_range != "all":
+                        pages = document_content.get("pages", [])
+                        if page_range == "first":
+                            document_content["pages"] = pages[:1]
+                        else:
+                            try:
+                                n = int(page_range)
+                                document_content["pages"] = pages[:n]
+                            except ValueError:
+                                pass  # keep all pages on invalid input
+                        print(f"Page range '{page_range}': processing {len(document_content.get('pages', []))} of {len(pages)} pages")
+
+                    # Capture preview images (first 3 pages max) for the validation UI
+                    preview_images = []
+                    if document_content.get("type") == "pdf":
+                        pages = document_content.get("pages", [])
+                        preview_images = pages[:min(3, len(pages))]
+                    elif document_content.get("type") == "image":
+                        img_data = document_content.get("data")
+                        if img_data:
+                            preview_images = [img_data]
+
                     # Extract structured data with Ollama
                     extraction_result = extract_structured_data_with_ollama(
                         document_content=document_content,
                         fields_to_extract=fields_to_extract,
-                        additional_request=additional_request
+                        additional_request=additional_request,
+                        document_type=document_type,
+                        system_prompt=system_prompt,
+                        filepath=filepath,
+                        mime_type=file.mimetype,
+                        extraction_strategy=extraction_strategy,
+                        handwriting_mode=handwriting_mode,
                     )
+
+                    duration_s = round(time.time() - file_start, 1)
+                    print(f"File {filename} processed in {duration_s}s")
 
                     results.append({
                         "filename": filename,
-                        "extraction": extraction_result
+                        "extraction": extraction_result,
+                        "preview_images": preview_images,
+                        "duration_seconds": duration_s,
                     })
 
                 finally:
@@ -569,6 +649,10 @@ def extract_data_route():
         print(f"Error in /extract endpoint: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+    finally:
+        # Restore original model if we did a per-request override
+        if original_model is not None:
+            os.environ['OLLAMA_MODEL'] = original_model
 
 
 @app.route('/export-excel', methods=['POST'])
@@ -589,14 +673,19 @@ def export_excel():
         # Collect all unique fields from all results
         all_fields = set()
         for result in results:
-            extraction_data = result.get('extraction', {}).get('extraction_results', {}).get('data', {})
-            all_fields.update(extraction_data.keys())
+            # Prefer edited_data (human validated) if available
+            edited_data = result.get('edited_data')
+            if edited_data and isinstance(edited_data, dict):
+                all_fields.update(edited_data.keys())
+            else:
+                extraction_data = result.get('extraction', {}).get('extraction_results', {}).get('data', {})
+                all_fields.update(extraction_data.keys())
         
         # Sort fields for consistent column order
         sorted_fields = sorted(all_fields)
         
-        # Create header row
-        headers = ['Filename'] + sorted_fields + ['Confidence Score', 'Reasoning']
+        # Create header row: Filename + fields + Validated + Confidence
+        headers = ['Filename'] + sorted_fields + ['Validated', 'Confidence Score']
         ws.append(headers)
         
         # Style header
@@ -610,10 +699,17 @@ def export_excel():
         # Add data rows
         for result in results:
             filename = result.get('filename', 'Unknown')
-            extraction = result.get('extraction', {}).get('extraction_results', {})
-            data_dict = extraction.get('data', {})
-            confidence = extraction.get('confidence_score', 'N/A')
-            reasoning = extraction.get('reasoning', 'N/A')
+            validated = result.get('validated', False)
+            
+            # Use human-edited data if validated, otherwise use AI extraction
+            edited_data = result.get('edited_data')
+            if edited_data and isinstance(edited_data, dict):
+                data_dict = edited_data
+            else:
+                extraction = result.get('extraction', {}).get('extraction_results', {})
+                data_dict = extraction.get('data', {})
+
+            confidence = result.get('extraction', {}).get('extraction_results', {}).get('confidence_score', 'N/A')
             
             # Build row
             row = [filename]
@@ -623,10 +719,17 @@ def export_excel():
                 if value is None:
                     value = ''
                 row.append(value)
+            row.append('Yes' if validated else 'No')
             row.append(confidence)
-            row.append(reasoning)
             
             ws.append(row)
+        
+        # Highlight validated rows in light green
+        green_fill = PatternFill(start_color="E9F7EF", end_color="E9F7EF", fill_type="solid")
+        for row_idx, result in enumerate(results, start=2):
+            if result.get('validated', False):
+                for cell in ws[row_idx]:
+                    cell.fill = green_fill
         
         # Auto-adjust column widths
         for column in ws.columns:

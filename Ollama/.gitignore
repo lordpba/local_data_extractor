@@ -17,6 +17,7 @@ ENV/
 # Temporary files
 temp_uploads/
 cache/
+tests/
 *.tmp
 *.temp
 

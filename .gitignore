@@ -59,6 +59,7 @@ Thumbs.db
 # Project specific
 Ollama/temp_uploads/
 Ollama/cache/
+Ollama/tests/
 GCP/temp_uploads/
 *.pdf
 *.jpg

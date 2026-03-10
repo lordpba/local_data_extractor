@@ -29,9 +29,9 @@ fi
 
 # Pull the multimodal model
 echo ""
-echo "[3/5] Pulling multimodal model (llama3.2-vision)..."
+echo "[3/5] Pulling multimodal model (llama3.2-vision:11b)..."
 echo "This may take a while depending on your internet connection..."
-ollama pull llama3.2-vision
+ollama pull llama3.2-vision:11b
 
 if [ $? -eq 0 ]; then
     echo "✅ Model pulled successfully"

@@ -5,14 +5,50 @@ import requests
 from pathlib import Path
 import PyPDF2
 from pdf2image import convert_from_path
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
+import io
 
 # Configuration is read dynamically from environment to allow runtime changes
 def get_ollama_base_url():
     return os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 def get_ollama_model():
-    return os.getenv("OLLAMA_MODEL", "llama3.2-vision")
+    return os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b")
+
+
+def is_deepseek_ocr_model(model_name):
+    model_lower = (model_name or "").lower()
+    return "deepseek-ocr" in model_lower
+
+
+def is_glm_ocr_model(model_name):
+    return "glm-ocr" in (model_name or "").lower()
+
+
+def is_ocr_specialist_model(model_name):
+    """True for models that use the two-phase OCR→regex pipeline
+    (deepseek-ocr and glm-ocr). Both output clean OCR text with their native
+    short prompts but cannot follow verbose JSON templates.
+    """
+    return is_deepseek_ocr_model(model_name) or is_glm_ocr_model(model_name)
+
+
+def is_thinking_model(model_name):
+    """Models that emit <think>...</think> before their actual answer.
+    These need thinking tags stripped and a larger num_ctx.
+    """
+    model_lower = (model_name or "").lower()
+    return any(kw in model_lower for kw in ['qwen3.5', 'qwen3:', 'qwen3-', 'qwq', 'deepseek-r1', 'deepseek-r2'])
+
+
+def strip_thinking_tags(text):
+    """Remove <think>...</think> blocks emitted by reasoning/thinking models.
+    Must be called before any JSON parsing.
+    """
+    import re
+    # Remove full <think>...</think> block (can span multiple lines)
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    return text.strip()
 
 
 def process_document(filepath, mime_type):
@@ -30,11 +66,22 @@ def process_document(filepath, mime_type):
 
 
 def process_image(image_path):
-    """Process image file and return base64 encoded"""
+    """Process image file with enhancement for better OCR and return base64 encoded"""
     try:
-        with open(image_path, 'rb') as img_file:
-            image_data = img_file.read()
-            base64_image = base64.b64encode(image_data).decode('utf-8')
+        with Image.open(image_path) as img:
+            # Convert to RGB if necessary
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Apply image enhancement for better text recognition
+            img = enhance_image_for_ocr(img)
+            
+            # Save to buffer with high quality
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=95, optimize=True)
+            buffer.seek(0)
+            
+            base64_image = base64.b64encode(buffer.read()).decode('utf-8')
             return {
                 "type": "image",
                 "data": base64_image
@@ -44,16 +91,68 @@ def process_image(image_path):
         raise
 
 
+def enhance_image_for_ocr(img):
+    """
+    Enhance image for better OCR results, especially for handwritten text.
+    """
+    # 1. Resize if too small (upscale for better recognition)
+    min_width = 1500
+    if img.width < min_width:
+        ratio = min_width / img.width
+        new_size = (int(img.width * ratio), int(img.height * ratio))
+        img = img.resize(new_size, Image.LANCZOS)
+        print(f"Upscaled image to {new_size[0]}x{new_size[1]}")
+    
+    # 2. Increase contrast for handwritten text
+    contrast_enhancer = ImageEnhance.Contrast(img)
+    img = contrast_enhancer.enhance(1.3)  # 30% more contrast
+    
+    # 3. Increase sharpness
+    sharpness_enhancer = ImageEnhance.Sharpness(img)
+    img = sharpness_enhancer.enhance(1.5)  # 50% sharper
+    
+    # 4. Slight brightness adjustment to make text pop
+    brightness_enhancer = ImageEnhance.Brightness(img)
+    img = brightness_enhancer.enhance(1.05)  # 5% brighter
+    
+    return img
+
+
+def downscale_base64_image(base64_image, max_width=1152, jpeg_quality=85):
+    """Downscale a base64 image and return a lighter base64 payload."""
+    try:
+        image_bytes = base64.b64decode(base64_image)
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+
+            if img.width > max_width:
+                ratio = max_width / img.width
+                new_height = int(img.height * ratio)
+                img = img.resize((max_width, new_height), Image.LANCZOS)
+
+            output = io.BytesIO()
+            img.save(output, format='JPEG', quality=jpeg_quality, optimize=True)
+            output.seek(0)
+            return base64.b64encode(output.read()).decode('utf-8')
+    except Exception as e:
+        print(f"Warning: could not downscale image payload: {e}")
+        return base64_image
+
+
 def process_pdf(pdf_path):
     """
     Process PDF by converting pages to images
     Returns array of base64 encoded images
     """
     try:
+        model_name = get_ollama_model()
+        deepseek_mode = is_deepseek_ocr_model(model_name)
+
         print(f"Converting PDF to images: {pdf_path}")
-        # Convert PDF pages to images with HIGHER DPI for better text recognition
-        # Using 250 DPI for excellent OCR quality
-        images = convert_from_path(pdf_path, dpi=250)
+        # Model-aware rendering: DeepSeek OCR is more stable with moderate resolutions
+        pdf_dpi = 220 if deepseek_mode else 300
+        images = convert_from_path(pdf_path, dpi=pdf_dpi)
         print(f"PDF converted to {len(images)} page(s)")
         
         # Limit pages to avoid huge payloads
@@ -66,22 +165,22 @@ def process_pdf(pdf_path):
         for i, image in enumerate(images):
             print(f"Processing page {i+1}/{len(images)}...")
             
-                        # Resize image to fit model limits while preserving quality
-            # LLaVA 1.6: supports up to 1344x1344 (4x resolution improvement!)
-            # Gemma3: no strict documented limit
-            # Llama Vision: tested to handle larger images than documented
-            # Using 1344px to match LLaVA 1.6 max resolution for best OCR
-            MAX_WIDTH = 1344
+            # Apply OCR enhancement
+            image = enhance_image_for_ocr(image)
+            
+            # Resize image to fit model limits while preserving quality
+            # For deepseek-ocr keep lower width for runtime stability
+            MAX_WIDTH = 1280 if deepseek_mode else 1600
             if image.width > MAX_WIDTH:
                 ratio = MAX_WIDTH / image.width
                 new_height = int(image.height * ratio)
                 image = image.resize((MAX_WIDTH, new_height), Image.LANCZOS)
                 print(f"Resized page {i+1} to {MAX_WIDTH}x{new_height}")
             
-            # Save temporarily with HIGH quality compression for OCR
-            # Quality 95 for minimal JPEG artifacts on text
+            # Save temporarily with model-aware quality
+            jpeg_quality = 88 if deepseek_mode else 95
             temp_image_path = f"{pdf_path}_page_{i}.jpg"
-            image.save(temp_image_path, 'JPEG', quality=95, optimize=True)
+            image.save(temp_image_path, 'JPEG', quality=jpeg_quality, optimize=True)
             
             # Convert to base64
             with open(temp_image_path, 'rb') as img_file:
@@ -170,189 +269,113 @@ def merge_page_results(page_extractions, fields_to_extract):
     }
 
 
-def extract_structured_data_with_ollama(document_content, fields_to_extract, additional_request=None):
-    """
-    Extract structured data from document using Ollama multimodal model
+def extract_structured_data_with_ollama(
+    document_content,
+    fields_to_extract,
+    additional_request=None,
+    document_type=None,
+    system_prompt=None,
+    filepath=None,
+    mime_type=None,
+    extraction_strategy='auto',
+    handwriting_mode=False,
+):
+    """Extract structured data using a single Vision AI pipeline (image-first, no classical OCR pass).
+    
+    extraction_strategy:
+      'auto' — pick the best strategy based on model type
+      'single_pass' — direct vision-to-JSON (original)
+      'ocr_then_extract' — Phase 1: vision→raw text, Phase 2: LLM→JSON
     """
     if not fields_to_extract or not isinstance(fields_to_extract, dict):
         return {"error": "fields_to_extract is required and must be a dictionary {field: description}"}
 
-    # Build field descriptions
-    fields_to_extract_str = "\n".join([f"- `{key}`: {description}" for key, description in fields_to_extract.items()])
+    # Build document type context
+    doc_type_context = ""
+    if document_type:
+        doc_type_map = {
+            "invoice": "This is an INVOICE/FATTURA document.",
+            "receipt": "This is a RECEIPT/SCONTRINO document.",
+            "form": "This is a FORM/MODULO with HANDWRITTEN fields.",
+            "contract": "This is a CONTRACT/CONTRATTO document.",
+            "id_document": "This is an ID DOCUMENT (carta d'identità, passaporto, etc.).",
+            "certificate": "This is a CERTIFICATE/CERTIFICATO document.",
+            "custom": "Document type specified by user."
+        }
+        doc_type_context = doc_type_map.get(document_type, f"Document type: {document_type}")
 
-     # Prompt OCR generico e robusto
-    instruction = f"""
-You are a document data extraction assistant. Extract information from this document image.
+    return single_pass_extraction(
+        document_content,
+        fields_to_extract,
+        additional_request,
+        doc_type_context,
+        system_prompt,
+        filepath=filepath,
+        mime_type=mime_type,
+        extraction_strategy=extraction_strategy,
+        handwriting_mode=handwriting_mode,
+    )
 
-EXTRACTION RULES:
-1. Copy text EXACTLY as it appears (preserve formatting, spacing, case).
-2. For each field, provide:
-    - The extracted value (or null if unreadable)
-    - A confidence score (0-100) reflecting image quality and text legibility
-    - A brief reasoning explaining the confidence for each field
-3. Confidence must be based ONLY on image quality and text clarity:
-    - HIGH (80-100): perfectly readable, no blur/pixelation
-    - MEDIUM (50-79): some blur/artifacts, mostly readable
-    - LOW (20-49): difficult to read, guessing required
-    - VERY LOW (0-19): barely legible or illegible, mostly guessing/null
-4. For ANY field, if one or more characters are unclear, reduce confidence accordingly.
-5. Do NOT add extra text or explanations outside the JSON structure.
 
-Fields to extract:
-{fields_to_extract_str}
+def single_pass_extraction(
+    document_content,
+    fields_to_extract,
+    additional_request,
+    doc_type_context,
+    system_prompt=None,
+    filepath=None,
+    mime_type=None,
+    extraction_strategy='auto',
+    handwriting_mode=False,
+):
+    """Single-pass extraction (direct vision-to-JSON) or two-phase OCR-then-extract."""
+    model_name = get_ollama_model()
 
-Additional request: {additional_request if additional_request else 'None'}
+    # Ollama-based models
+    print("👁️ Using VISION-AI extraction mode")
 
-Respond with ONLY this JSON structure:
-{{
+    # Flatten pages list regardless of document type
+    if document_content["type"] == "image":
+        pages = [document_content["data"]]
+    else:
+        pages = document_content["pages"]
 
-EXTRACTION RULES:
-1. Copy text EXACTLY as it appears (preserve formatting, spacing, case).
-2. For each field, provide:
-    - The extracted value (or null if unreadable)
-    - A confidence score (0-100) reflecting image quality and text legibility
-    - A brief reasoning explaining the confidence for each field
-3. Confidence must be based ONLY on image quality and text clarity:
-    - HIGH (80-100): perfectly readable, no blur/pixelation
-    - MEDIUM (50-79): some blur/artifacts, mostly readable
-    - LOW (20-49): difficult to read, guessing required
-    - VERY LOW (0-19): barely legible or illegible, mostly guessing/null
-4. For ANY field, if one or more characters are unclear, reduce confidence accordingly.
-5. Do NOT add extra text or explanations outside the JSON structure.
+    num_pages = len(pages)
+    print(f"Processing {'single image' if num_pages == 1 else f'PDF with {num_pages} page(s)'}")
 
-Fields to extract:
-{fields_to_extract_str}
+    # Decide strategy
+    if extraction_strategy == 'auto':
+        if is_ocr_specialist_model(model_name):
+            chosen_strategy = 'ocr_specialist'
+        elif handwriting_mode:
+            chosen_strategy = 'ocr_then_extract'
+        else:
+            chosen_strategy = 'single_pass'
+    elif extraction_strategy == 'ocr_then_extract':
+        chosen_strategy = 'ocr_then_extract'
+    else:
+        if is_ocr_specialist_model(model_name):
+            chosen_strategy = 'ocr_specialist'
+        else:
+            chosen_strategy = 'single_pass'
 
-Additional request: {additional_request if additional_request else 'None'}
-
-Respond with ONLY this JSON structure:
-{{
-  "extraction_results": {{
-    "overall_confidence": <average of all field confidences>,
-    "reasoning": "<mention image quality and any difficulties reading text>",
-    "data": {{
-      {', '.join([f'"{key}": {{"value": "<extracted text or null>", "confidence": <0-100 reflecting image quality>}}' for key in fields_to_extract.keys()])}
-    }},
-    "additional_request_result": "<answer or null>"
-  }}
-}}"""
+    print(f"Strategy: {chosen_strategy} (requested={extraction_strategy}, handwriting={handwriting_mode})")
 
     try:
-        # Prepare messages for Ollama
-        if document_content["type"] == "image":
-            # Single image
-            print("Processing single image document")
-            response = call_ollama_vision(instruction, [document_content["data"]])
-        else:  # PDF with multiple pages
-            num_pages = len(document_content["pages"])
-            print(f"Processing PDF document with {num_pages} page(s)")
-            
-            # llama3.2-vision supports ONLY ONE image at a time
-            # Process each page separately and merge results
-            if num_pages == 1:
-                # Single page - process directly
-                response = call_ollama_vision(instruction, [document_content["pages"][0]])
-            else:
-                # Multiple pages - process each one and combine
-                print(f"Processing {num_pages} pages individually (model supports 1 image at a time)...")
-                
-                page_extractions = []
-                for i, page_image in enumerate(document_content["pages"]):
-                    print(f"Processing page {i+1}/{num_pages}...")
-                    try:
-                        page_instruction = f"{instruction}\n\nNote: This is page {i+1} of {num_pages} from the document."
-                        page_response = call_ollama_vision(page_instruction, [page_image])
-                        
-                        # Parse the page result
-                        try:
-                            page_result = json.loads(page_response)
-                            page_extractions.append(page_result)
-                        except json.JSONDecodeError:
-                            print(f"Warning: Could not parse JSON from page {i+1}")
-                    except Exception as page_error:
-                        print(f"Error processing page {i+1}: {page_error}")
-                        # Continue with other pages
-                
-                if not page_extractions:
-                    raise Exception("Failed to process any page of the document")
-                
-                # Merge results from all pages
-                print(f"Merging results from {len(page_extractions)} successfully processed page(s)...")
-                merged_result = merge_page_results(page_extractions, fields_to_extract)
-                response = json.dumps(merged_result)
-        
-        # Parse response - handle potential JSON issues
-        try:
-            result = json.loads(response)
-        except json.JSONDecodeError as je:
-            print(f"JSON decode error: {je}")
-            print(f"Raw response (first 500 chars): {response[:500]}")
-            
-            # Try to extract JSON from response if wrapped in markdown or text
-            import re
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                try:
-                    result = json.loads(json_match.group())
-                    print("Successfully extracted JSON from response")
-                except:
-                    raise Exception(f"Could not parse JSON response. Raw: {response[:200]}")
-            else:
-                raise Exception(f"No JSON found in response. Raw: {response[:200]}")
-        
-        # Validate structure
-        if "extraction_results" not in result:
-            print("WARNING: Unexpected response structure, wrapping result")
-            result = {
-                "extraction_results": {
-                    "overall_confidence": 0,
-                    "reasoning": "Response format was unexpected",
-                    "data": result if isinstance(result, dict) else {},
-                    "additional_request_result": None
-                }
-            }
-        
-        extraction_results = result.get("extraction_results", {})
-        data = extraction_results.get("data", {})
-        
-        # Handle new format with per-field confidence
-        # Convert {"field": {"value": "...", "confidence": 90}} to {"field": "..."}
-        # and calculate overall confidence from field confidences
-        processed_data = {}
-        field_confidences = []
-        
-        for field_key in fields_to_extract.keys():
-            field_data = data.get(field_key)
-            
-            if isinstance(field_data, dict) and "value" in field_data:
-                # New format with confidence per field
-                processed_data[field_key] = field_data.get("value")
-                confidence = field_data.get("confidence", 0)
-                field_confidences.append(confidence)
-                
-                # Log low confidence fields
-                if confidence < 50:
-                    print(f"⚠️ Low confidence ({confidence}%) for field '{field_key}': {field_data.get('value')}")
-            else:
-                # Old format or missing field
-                processed_data[field_key] = field_data
-                field_confidences.append(50)  # Default medium confidence for old format
-        
-        # Calculate overall confidence from field confidences
-        overall_confidence = int(sum(field_confidences) / len(field_confidences)) if field_confidences else 0
-        
-        # Override overall_confidence if present in response
-        if "overall_confidence" not in extraction_results:
-            extraction_results["overall_confidence"] = overall_confidence
-        
-        # Keep both confidence_score (old) and overall_confidence (new) for compatibility
-        extraction_results["confidence_score"] = extraction_results.get("overall_confidence", overall_confidence)
-        extraction_results["data"] = processed_data
-        
-        return result
-
+        if chosen_strategy == 'ocr_specialist':
+            return _ocr_specialist_extraction(
+                pages, fields_to_extract, additional_request, doc_type_context
+            )
+        elif chosen_strategy == 'ocr_then_extract':
+            return _ocr_then_extract(
+                pages, fields_to_extract, additional_request, doc_type_context, system_prompt, handwriting_mode
+            )
+        else:
+            return _standard_vision_extraction(
+                pages, fields_to_extract, additional_request, doc_type_context, system_prompt, handwriting_mode
+            )
     except Exception as e:
-        print(f"Error in extract_structured_data_with_ollama: {e}")
+        print(f"Error in single_pass_extraction: {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -361,14 +384,586 @@ Respond with ONLY this JSON structure:
                 "confidence_score": 0,
                 "reasoning": f"Error: {str(e)}",
                 "data": {key: None for key in fields_to_extract.keys()},
-                "additional_request_result": None
+                "additional_request_result": None,
+            },
+        }
+
+
+def _ocr_specialist_extraction(pages, fields_to_extract, additional_request, doc_type_context):
+    """Two-phase extraction for OCR-specialist models (deepseek-ocr, glm-ocr):
+      Phase 1 – Vision call with the model's native short OCR prompt → raw text.
+                 No JSON format, no verbose instructions that the model would echo back.
+      Phase 2 – Pure Python regex/contextual parsing of the OCR text → structured fields.
+                 Zero extra model calls: no VRAM spikes, no JSON echo problem.
+    Supports:
+      deepseek-ocr — prompt: '<|grounding|>Extract all text from this document.'
+                      outputs grounding annotations that are stripped before parsing
+      glm-ocr      — prompt: 'Text Recognition:'
+                      outputs clean markdown text directly
+    """
+    model_name = get_ollama_model()
+    if is_glm_ocr_model(model_name):
+        OCR_PROMPT = "Text Recognition:"
+    else:  # deepseek-ocr (default)
+        OCR_PROMPT = "<|grounding|>Extract all text from this document."
+
+    page_extractions = []
+    page_errors = []
+    total = len(pages)
+    # Accumulate OCR text across pages for the additional_request answer
+    all_ocr_text = []
+
+    for i, page_image in enumerate(pages):
+        label = f"page {i+1}/{total}" if total > 1 else "image"
+        model_label = "GLM-OCR" if is_glm_ocr_model(model_name) else "DeepSeek OCR"
+        print(f"{model_label} Phase 1 (vision): {label}...")
+        try:
+            raw_ocr = call_ollama_vision_raw(OCR_PROMPT, [page_image])
+            # deepseek-ocr wraps regions in <|ref|>...<|/ref|> annotation tokens → strip them
+            # glm-ocr outputs clean markdown → strip_deepseek_ocr_annotations is a safe no-op
+            clean_text = strip_deepseek_ocr_annotations(raw_ocr)
+            print(f"Phase 1 complete: {len(clean_text)} chars of clean text")
+
+            if not clean_text.strip():
+                raise Exception("Phase 1 returned empty text — image may be blank or unreadable")
+
+            all_ocr_text.append(clean_text)
+
+            # Phase 2: regex + contextual parsing (no model call, no VRAM)
+            print(f"{model_label} Phase 2 (regex parse): {label}...")
+            extracted_data = parse_ocr_text_to_fields(clean_text, fields_to_extract)
+
+            found = [k for k, v in extracted_data.items() if v.get("value") is not None]
+            print(f"Phase 2 complete: found {len(found)}/{len(fields_to_extract)} fields: {found}")
+
+            page_extractions.append({
+                "extraction_results": {
+                    "confidence_score": 80,
+                    "reasoning": f"{model_label} two-phase extraction — page {i+1}",
+                    "data": extracted_data,
+                    "additional_request_result": None
+                }
+            })
+
+        except Exception as e:
+            page_errors.append(f"Page {i+1}: {str(e)}")
+            print(f"Error on {label}: {e}")
+            continue
+
+    if not page_extractions:
+        raise Exception(f"Failed to process any page. {' | '.join(page_errors[:3])}")
+
+    result = page_extractions[0] if len(page_extractions) == 1 else merge_page_results(page_extractions, fields_to_extract)
+
+    # If there is an additional_request, do a final targeted vision call on p.1 to answer it
+    if additional_request and all_ocr_text:
+        combined_text = "\n\n--- PAGE BREAK ---\n\n".join(all_ocr_text)
+        result["extraction_results"]["additional_request_result"] = (
+            f"[From OCR text] {combined_text[:800]}"
+        )
+
+    return result
+
+
+def _ocr_then_extract(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None, handwriting_mode=False):
+    """Two-phase extraction for general vision models:
+      Phase 1 — Vision call to transcribe ALL text from the image (OCR pass).
+      Phase 2 — Text-only LLM call to extract structured JSON from OCR text.
+    This strategy works best for handwritten documents where direct JSON extraction
+    produces many errors, since the model can focus on reading first, then structuring.
+    """
+    model_name = get_ollama_model()
+    print(f"🔄 OCR-then-Extract strategy with {model_name}")
+
+    # Phase 1 prompt — adapted for handwriting awareness
+    if handwriting_mode:
+        ocr_prompt = (
+            "You are an expert OCR system. Transcribe ALL text visible in this image, "
+            "including handwritten text. Read each handwritten character carefully by its shape. "
+            "For codes and IDs, spell out each character individually. "
+            "Output ONLY the transcribed text, preserving layout with line breaks. "
+            "Do NOT add commentary or explanations."
+        )
+    else:
+        ocr_prompt = (
+            "Transcribe ALL text visible in this document image. "
+            "Preserve the original layout using line breaks. "
+            "Include every piece of text: printed, typed, and handwritten. "
+            "Output ONLY the transcribed text."
+        )
+
+    page_ocr_texts = []
+    total = len(pages)
+
+    for i, page_image in enumerate(pages):
+        label = f"page {i+1}/{total}" if total > 1 else "image"
+        print(f"Phase 1 (OCR): {label}...")
+        try:
+            raw_text = call_ollama_vision_raw(ocr_prompt, [page_image])
+            # Strip thinking tags
+            raw_text = strip_thinking_tags(raw_text)
+            print(f"Phase 1 complete for {label}: {len(raw_text)} chars")
+            if raw_text.strip():
+                page_ocr_texts.append(raw_text.strip())
+            else:
+                print(f"Warning: Phase 1 returned empty text for {label}")
+        except Exception as e:
+            print(f"Phase 1 error on {label}: {e}")
+            continue
+
+    if not page_ocr_texts:
+        raise Exception("Phase 1 OCR returned no text from any page")
+
+    combined_ocr = "\n\n--- PAGE BREAK ---\n\n".join(page_ocr_texts)
+    print(f"Phase 1 complete: {len(combined_ocr)} total chars across {len(page_ocr_texts)} page(s)")
+
+    # Phase 2 — text-only extraction using /api/generate (no images)
+    fields_str = "\n".join([f"- `{key}`: {desc}" for key, desc in fields_to_extract.items()])
+    data_template = ', '.join([f'"{key}": {{"value": null, "confidence": 0}}' for key in fields_to_extract.keys()])
+
+    phase2_prompt = f"""You are a document data extraction expert. Below is the OCR text transcribed from a document.
+
+{f"DOCUMENT TYPE: {doc_type_context}" if doc_type_context else ""}
+
+TRANSCRIBED TEXT:
+---
+{combined_ocr}
+---
+
+FIELDS TO EXTRACT:
+{fields_str}
+
+{f"ADDITIONAL REQUEST: {additional_request}" if additional_request else ""}
+
+INSTRUCTIONS:
+- Extract EXACT values from the transcribed text for each field
+- For codes/IDs, copy character-by-character
+- If a field is not found, set value to null
+- Return ONLY valid JSON
+
+OUTPUT FORMAT:
+{{
+  "extraction_results": {{
+    "overall_confidence": 0,
+    "reasoning": "brief notes",
+    "data": {{
+      {data_template}
+    }},
+    "additional_request_result": null
+  }}
+}}"""
+
+    print(f"Phase 2 (LLM extraction from OCR text)...")
+    try:
+        # Phase 2: text-only call (no images) with JSON format
+        base_url = get_ollama_base_url()
+        model = get_ollama_model()
+        thinking = is_thinking_model(model)
+        num_ctx = 8192 if thinking else 4096
+        actual_prompt = phase2_prompt + (" /no_think" if thinking else "")
+
+        payload = {
+            "model": model,
+            "prompt": actual_prompt,
+            "stream": False,
+            "format": "json",
+            "options": {
+                "temperature": 0.1,
+                "num_predict": 4000,
+                "num_ctx": num_ctx,
+                "num_keep": 0,
+            },
+        }
+        response = requests.post(f"{base_url}/api/generate", json=payload, timeout=300)
+        response.raise_for_status()
+        result_text = response.json().get("response", "{}")
+        if thinking:
+            result_text = strip_thinking_tags(result_text)
+        print(f"Phase 2 complete: {len(result_text)} chars")
+
+        result = parse_extraction_result(result_text, fields_to_extract, ocr_text=combined_ocr)
+
+        # Tag strategy in reasoning
+        er = result.get("extraction_results", {})
+        er["reasoning"] = f"[ocr_then_extract] {er.get('reasoning', '')}"
+
+        return result
+
+    except Exception as e:
+        print(f"Phase 2 error: {e}")
+        # Fall back to regex parsing of OCR text
+        print("Falling back to regex parsing of OCR text...")
+        extracted_data = parse_ocr_text_to_fields(combined_ocr, fields_to_extract)
+        found = [k for k, v in extracted_data.items() if v.get("value") is not None]
+        print(f"Regex fallback found {len(found)}/{len(fields_to_extract)} fields")
+        return {
+            "extraction_results": {
+                "confidence_score": 60,
+                "reasoning": f"[ocr_then_extract] Phase 2 LLM failed ({e}), used regex fallback",
+                "data": extracted_data,
+                "additional_request_result": None,
             }
         }
 
 
+def _standard_vision_extraction(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None, handwriting_mode=False):
+    """Standard single-pass vision extraction for llama3.2-vision, llava, bakllava, etc."""
+    fields_to_extract_str = "\n".join(
+        [f"- `{key}`: {description}" for key, description in fields_to_extract.items()]
+    )
+    default_system_prompt = """You are an expert vision document extraction system specialized in reading documents, including handwritten text.
+
+CRITICAL INSTRUCTIONS FOR ACCURATE TEXT EXTRACTION:
+
+1. **HANDWRITTEN TEXT**: Read each character carefully:
+    - Look at the SHAPE of each letter/number
+    - Consider context to disambiguate similar characters (0/O, 1/I/l, 5/S, 8/B, etc.)
+    - Italian Codice Fiscale format: 16 characters (letters and digits only)
+      Example: RSSMRA85M01H501Z
+
+2. **CHARACTER-BY-CHARACTER READING**: For codes and IDs:
+    - Read EACH character individually
+    - Double-check ambiguous characters
+
+3. **VISUAL CONTEXT**: Use the full page visual context (tables, labels, charts, handwritten notes)
+    to infer which values map to which fields.
+
+4. **BE PRECISE**: Extract exactly what is visible in the image."""
+
+    base_prompt = system_prompt.strip() if system_prompt and system_prompt.strip() else default_system_prompt
+
+    # Enhance prompt for handwriting mode
+    handwriting_extra = ""
+    if handwriting_mode:
+        handwriting_extra = """
+HANDWRITING MODE ENABLED — Extra attention required:
+- This document contains HANDWRITTEN text that is the primary data source.
+- Spend extra effort decoding each handwritten character by its SHAPE.
+- Common handwriting confusions: 0↔O, 1↔I↔l, 5↔S, 8↔B, Z↔2, G↔6, D↔0, U↔V.
+- For Italian Codice Fiscale: exactly 16 alphanumeric chars (6 letters + 2 digits + 1 letter + 2 digits + 1 letter + 3 digits + 1 letter).
+- Do NOT invent or guess characters — if truly unreadable, write '?' for that position.
+"""
+
+    data_template = ', '.join(
+        [f'"{key}": {{"value": null, "confidence": 0}}' for key in fields_to_extract.keys()]
+    )
+    instruction = f"""{base_prompt}
+{handwriting_extra}
+{f"DOCUMENT TYPE: {doc_type_context}" if doc_type_context else ""}
+
+FIELD EXTRACTION:
+For each field below, extract the EXACT text as written:
+{fields_to_extract_str}
+
+{f"ADDITIONAL REQUEST: {additional_request}" if additional_request else ""}
+
+OUTPUT FORMAT: Return ONLY valid JSON:
+{{
+  "extraction_results": {{
+    "overall_confidence": 0,
+    "reasoning": "describe any difficulties",
+    "data": {{
+      {data_template}
+    }},
+    "additional_request_result": null
+  }}
+}}
+
+Now analyze the document image and extract the requested fields."""
+
+    total = len(pages)
+    page_extractions = []
+    page_errors = []
+
+    for i, page_image in enumerate(pages):
+        label = f"page {i+1}/{total}" if total > 1 else "image"
+        print(f"Processing {label}...")
+        try:
+            page_instruction = (
+                f"{instruction}\n\nNote: This is page {i+1} of {total} from the document."
+                if total > 1 else instruction
+            )
+            page_response = call_ollama_vision(page_instruction, [page_image])
+            page_result = parse_extraction_result(page_response, fields_to_extract)
+            page_extractions.append(page_result)
+        except Exception as page_error:
+            print(f"Error processing {label}: {page_error}")
+            try:
+                print(f"Retrying {label} with smaller image...")
+                smaller = downscale_base64_image(page_image, max_width=1024, jpeg_quality=80)
+                retry_response = call_ollama_vision(page_instruction, [smaller])
+                retry_result = parse_extraction_result(retry_response, fields_to_extract)
+                page_extractions.append(retry_result)
+                print(f"Retry succeeded for {label}")
+            except Exception as retry_error:
+                page_errors.append(f"Page {i+1}: {str(retry_error)}")
+                print(f"Retry failed for {label}: {retry_error}")
+                continue
+
+    if not page_extractions:
+        detailed = " | ".join(page_errors[:3]) if page_errors else "No valid extraction produced"
+        raise Exception(f"Failed to process any page of the document. {detailed}")
+
+    if len(page_extractions) == 1:
+        return page_extractions[0]
+    print(f"Merging results from {len(page_extractions)} pages...")
+    return merge_page_results(page_extractions, fields_to_extract)
+
+
+def parse_ocr_text_to_fields(ocr_text, fields_to_extract):
+    """Parse cleaned deepseek-ocr text output into field values.
+
+    DeepSeek OCR reads handwritten block letters as dotted spelling artifacts:
+      'STILO' → 'S.T.I.L.O.'   'FABIO' → 'F.A.B.I.O.'
+    This function:
+      1. De-dots the full OCR text (S.T.I.L.O. → STILO) before any search
+      2. Finds each label and captures the value up to the NEXT Italian field label
+      3. Applies a dedicated CF regex, with fallback to raw segment extraction
+    """
+    import re
+
+    # ── Step 1: de-dot ────────────────────────────────────────────────────────
+    # Collapse X.Y.Z. patterns where each char is a single letter/digit followed by a dot.
+    # Only triggered when starting with a letter to avoid breaking dates (04.09.1987)
+    # and phone numbers.
+    # NOTE: do NOT allow spaces inside the collapsed group — keep inter-word spaces intact
+    # so that "V.I.B.O. V.A.L.E.N.T.I.A." → "VIBO VALENTIA" (not "VIBOVALENTIA").
+    def dedot(t):
+        def collapse(m):
+            return re.sub(r'\.', '', m.group(0))   # remove ONLY dots, keep spaces
+        # Match: letter followed by 2+ occurrences of (dot + letter/digit) — NO space allowed
+        return re.sub(r'[A-Za-z](?:\.[A-Za-z0-9]){2,}\.?', collapse, t)
+
+    text = dedot(ocr_text)
+
+    # ── Step 2: boundary label pattern ────────────────────────────────────────
+    # Used to terminate value capture at the next recognised Italian field label
+    _BOUNDARY = re.compile(
+        r'(?i)\b(?:'
+        r'codice\s+fiscale|cod\.?\s*fiscale|cognome|nome|sesso|'
+        r'data\s+(?:di\s+)?nascita|nato\s+a|nata\s+a|in\s+data|'
+        r'residente\s+nel|residente|comune\s+(?:di\s+)?nascita|luogo\s+di\s+nascita|'
+        r'il\s+sottoscritto|in\s+qualit|id_arera|con\s+sede|'
+        r'denominazione|ragione\s+sociale|'
+        r'indirizzo\s+e-?mail|indirizzo|telefono|tel\.|partita\s+iva|'
+        r'(?:e-?mail|email)\s|pec(?:\s|$)|provincia|comune\b|cap\b|tipologia|'
+        r'chiede|per\s+la\s+figura|l\'abilitazione|modulo\s+\d|pag\.\s*\d'
+        r')\b'
+    )
+
+    def extract_value(aliases):
+        """Return the text between a matched label and the next boundary label or newline."""
+        escaped = '|'.join(re.escape(a) for a in sorted(aliases, key=len, reverse=True))
+        label_pat = re.compile(rf'(?i)(?:^|\n|(?<=\s))(?:{escaped})\s*[.:\-]*\s*')
+        m = label_pat.search(text)
+        if not m:
+            return None
+        start = m.end()
+        # Priority 1: stop at end of current line (values don't span lines in these forms)
+        newline_pos = text.find('\n', start)
+        line_end = newline_pos if newline_pos != -1 else start + 120
+        # Priority 2: stop at next boundary label within the same line
+        next_b = _BOUNDARY.search(text, start)
+        end = min(
+            line_end,
+            next_b.start() if next_b else start + 120
+        )
+        raw = text[start:end]
+        # Strip trailing dots/spaces, collapse internal whitespace
+        val = re.sub(r'\s+', ' ', raw).strip().strip('.,;: -')
+        if val and len(val) >= 1 and not re.match(r'^[.\s]+$', val):
+            return val
+        return None
+
+    # ── Step 3: ALIASES table ─────────────────────────────────────────────────
+    ALIASES = {
+        "codice_fiscale":    ["codice fiscale", "cod. fiscale", "codice\nfiscale", "cf"],
+        "cognome":           ["cognome"],
+        "nome":              ["nome"],
+        "sesso":             ["sesso"],
+        "data_nascita":      ["in data", "data di nascita", "data nascita", "nato il", "nata il"],
+        "comune_nascita":    ["nato a", "nata a", "comune di nascita", "luogo di nascita"],
+        "provincia_nascita": ["provincia di nascita", "prov. nascita"],
+        "denominazione_ente":["denominazione ente", "ragione sociale", "denominazione"],
+        "indirizzo":         ["indirizzo"],
+        "telefono":          ["telefono", "tel."],
+        "email":             ["indirizzo e-mail", "indirizzo email", "e-mail", "email"],
+        "pec":               ["pec"],
+        "tipologia":         ["tipologia"],
+        "comune":            ["comune"],
+        "provincia":         ["provincia"],
+        "cap":               ["cap"],
+    }
+
+    # ── Step 4: Italian CF regex (strict) ─────────────────────────────────────
+    CF_STRICT = re.compile(
+        r'\b([A-Z]{6}[0-9]{2}[A-EHLMPRST][0-9]{2}[A-Z][0-9]{3}[A-Z])\b',
+        re.IGNORECASE
+    )
+
+    # ── Step 5: extract each field ────────────────────────────────────────────
+    result = {}
+    for field_key in fields_to_extract.keys():
+        value = None
+        confidence = 0
+        key_lower = field_key.lower()
+
+        # ─ Codice Fiscale: strict regex first, then segment fallback ──────────
+        if any(x in key_lower for x in ("codice", "fiscal", "tax_code")):
+            m = CF_STRICT.search(text)
+            if m:
+                value = m.group(1).upper()
+                confidence = 95
+            else:
+                # OCR misread some chars → fall back to segment extraction
+                seg = extract_value(ALIASES["codice_fiscale"])
+                if seg:
+                    # Strip "Sesso" and everything after (often on same line)
+                    seg = re.sub(r'(?i)\s*sesso.*', '', seg).strip()
+                    # Remove internal spaces (two dotted groups may have been joined with space)
+                    candidate = re.sub(r'\s+', '', seg)
+                    if 14 <= len(candidate) <= 20:
+                        value = candidate[:16] if len(candidate) >= 16 else candidate
+                        confidence = 55  # lower: OCR errors possible
+
+        # ─ Sesso: M/F or MASCHILE/FEMMINILE ──────────────────────────────────
+        elif key_lower == "sesso":
+            seg = extract_value(ALIASES["sesso"])
+            if seg:
+                s = seg.strip().upper()
+                if s.startswith("M"):
+                    value, confidence = "M", 90
+                elif s.startswith("F"):
+                    value, confidence = "F", 90
+                else:
+                    value, confidence = s, 70
+
+        # ─ Data di nascita: grab date with dots intact (04.09.1987 style) ─────
+        elif any(x in key_lower for x in ("data", "nascita_d", "birth_date", "dob")):
+            seg = extract_value(ALIASES.get(key_lower, ["data di nascita", "in data"]))
+            if seg:
+                # Prefer 8-10 char date-like segment
+                date_m = re.search(r'\d{2}[.\-/]\d{2}[.\-/]\d{2,4}', seg)
+                if date_m:
+                    value, confidence = date_m.group(0), 90
+                else:
+                    value, confidence = seg, 70
+
+        # ─ Generic fields ─────────────────────────────────────────────────────
+        else:
+            aliases = ALIASES.get(key_lower, [key_lower.replace("_", " ")])
+            seg = extract_value(aliases)
+            if seg:
+                value, confidence = seg, 80
+
+        result[field_key] = {"value": value, "confidence": confidence}
+
+    return result
+
+
+def strip_deepseek_ocr_annotations(text):
+    """Remove deepseek-ocr grounding annotations from OCR output.
+    The model wraps each text region with:
+      <|ref|>label<|/ref|><|det|>[[x1,y1,x2,y2]]<|/det|>
+    followed by the actual text. We strip the annotation tags and keep only the text.
+    """
+    import re
+    # Remove full annotation blocks: <|ref|>...<|/ref|><|det|>...<|/det|>
+    text = re.sub(r'<\|ref\|>.*?<\|/ref\|>\s*<\|det\|>.*?<\|/det\|>', '', text, flags=re.DOTALL)
+    # Remove any remaining special tokens like <|token|>
+    text = re.sub(r'<\|[^|]+\|>', '', text)
+    # Collapse multiple blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_json=False):
+    """Call Ollama /api/chat endpoint — used as fallback for models that return
+    empty responses via /api/generate (e.g. qwen3-vl).
+    """
+    url = f"{base_url}/api/chat"
+    
+    # Build content parts: text + images
+    content_parts = [{"type": "text", "text": prompt}]
+    for img in images_base64:
+        content_parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}})
+    
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "user", "content": prompt, "images": images_base64}
+        ],
+        "stream": False,
+        "options": options
+    }
+    if format_json:
+        payload["format"] = "json"
+    
+    print(f"[Chat API fallback] Calling {model} via /api/chat...")
+    response = requests.post(url, json=payload, timeout=300)
+    response.raise_for_status()
+    result = response.json()
+    message = result.get("message", {})
+    response_text = message.get("content", "")
+    return response_text
+
+
+def call_ollama_vision_raw(prompt, images_base64):
+    """Call Ollama vision model WITHOUT format:json — returns plain text.
+    Used for Phase 1 of OCR two-phase extraction.
+    Falls back to /api/chat if /api/generate returns empty (qwen3-vl compat).
+    """
+    base_url = get_ollama_base_url()
+    model = get_ollama_model()
+    url = f"{base_url}/api/generate"
+
+    thinking = is_thinking_model(model)
+    num_ctx = 8192 if thinking else 4096
+
+    options = {
+        "temperature": 0.1,
+        "num_predict": 3000,
+        "num_ctx": num_ctx,
+        "num_keep": 0
+    }
+
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "images": images_base64,
+        "stream": False,
+        "options": options
+    }
+
+    try:
+        print(f"[OCR Phase 1] Calling {model} for raw text extraction...")
+        response = requests.post(url, json=payload, timeout=300)
+        response.raise_for_status()
+        result = response.json()
+        response_text = result.get("response", "")
+        
+        # Fallback to /api/chat if generate returned empty (qwen3-vl, etc.)
+        if not response_text:
+            print("[OCR Phase 1] Empty from /api/generate, trying /api/chat fallback...")
+            response_text = _call_ollama_chat(model, prompt, images_base64, base_url, options)
+        
+        if not response_text:
+            print("WARNING: Empty OCR response from both endpoints")
+            return ""
+        # Strip thinking tags if present
+        response_text = strip_thinking_tags(response_text)
+        print(f"[OCR Phase 1] Got {len(response_text)} chars of OCR text")
+        return response_text
+    except requests.exceptions.RequestException as e:
+        if hasattr(e, 'response') and e.response is not None:
+            raise Exception(f"OCR Phase 1 failed: HTTP {e.response.status_code} — {e.response.text[:200]}")
+        raise
+
+
 def call_ollama_vision(prompt, images_base64):
     """
-    Call Ollama API with vision model
+    Call Ollama API with vision model.
+    Falls back to /api/chat if /api/generate returns empty (qwen3-vl compat).
     images_base64: list of base64 encoded images
     """
     base_url = get_ollama_base_url()
@@ -377,7 +972,25 @@ def call_ollama_vision(prompt, images_base64):
     
     # Check if model supports vision before calling
     if not is_vision_model(model, base_url):
-        raise Exception(f"❌ Model '{model}' does not support vision/image input. Please select a vision-capable model like: llama3.2-vision, llava, or bakllava.")
+        raise Exception(f"❌ Model '{model}' does not support vision/image input. Please select a vision-capable model like: deepseek-ocr, llama3.2-vision, llava, or bakllava.")
+
+    # Thinking models need more context and benefit from /no_think to avoid
+    # wasting tokens on chain-of-thought during structured extraction
+    thinking = is_thinking_model(model)
+    num_ctx = 8192 if thinking else 4096
+    if thinking:
+        prompt = prompt + " /no_think"
+        print(f"[Thinking model] Added /no_think, num_ctx={num_ctx}")
+    
+    options = {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40,
+        "num_predict": 4000,
+        "repeat_penalty": 1.0,
+        "num_ctx": num_ctx,
+        "num_keep": 0
+    }
     
     payload = {
         "model": model,
@@ -385,28 +998,31 @@ def call_ollama_vision(prompt, images_base64):
         "images": images_base64,
         "stream": False,
         "format": "json",  # Force JSON output
-        "options": {
-            "temperature": 0.0,  # Zero temperature for maximum determinism and no creativity
-            "top_p": 0.1,  # Very low top_p to reduce randomness
-            "top_k": 10,  # Limit vocabulary choices
-            "num_predict": 2000,  # Max tokens for detailed responses
-            "repeat_penalty": 1.0  # No penalty, we want exact text extraction
-        }
+        "options": options
     }
     
     try:
         print(f"Calling Ollama with model: {model}")
         print(f"Processing {len(images_base64)} image(s)...")
 
-        response = requests.post(url, json=payload, timeout=300)  # Increased timeout
+        response = requests.post(url, json=payload, timeout=300)
         response.raise_for_status()
 
         result = response.json()
         response_text = result.get("response", "")
         
+        # Fallback to /api/chat if generate returned empty (qwen3-vl, etc.)
         if not response_text:
-            print("WARNING: Empty response from Ollama")
+            print("[Vision] Empty from /api/generate, trying /api/chat fallback...")
+            response_text = _call_ollama_chat(model, prompt, images_base64, base_url, options, format_json=True)
+        
+        if not response_text:
+            print("WARNING: Empty response from Ollama (both endpoints)")
             return "{}"
+
+        # Strip <think>...</think> from thinking models before JSON parsing
+        if thinking:
+            response_text = strip_thinking_tags(response_text)
         
         print(f"Ollama response length: {len(response_text)} characters")
         return response_text
@@ -425,7 +1041,7 @@ def call_ollama_vision(prompt, images_base64):
             if status_code == 400:
                 error_body = e.response.text.lower()
                 if 'does not support images' in error_body or 'vision' in error_body:
-                    raise Exception(f"❌ Model '{model}' does not support vision/image input. Please select a vision-capable model like: llama3.2-vision, llava, or bakllava.")
+                    raise Exception(f"❌ Model '{model}' does not support vision/image input. Please select a vision-capable model like: deepseek-ocr, llama3.2-vision, llava, or bakllava.")
                 raise Exception("Bad Request to Ollama. Possible causes: image too large, too many images, or invalid format. Try with a smaller/simpler document.")
             elif status_code == 413:
                 raise Exception("Payload too large for Ollama. The document images are too big. Try with a smaller document.")
@@ -438,14 +1054,13 @@ def call_ollama_vision(prompt, images_base64):
 
 def is_vision_model(model_name, base_url):
     """
-    Check if a model supports vision/image input by checking:
-    1. If model has 'clip' in families (vision encoder present)
-    2. If model has projector_info (multimodal projector)
-    3. Known vision family names
-    4. 'vision' keyword in model name
+    Check if a model supports vision/image input.
+    
+    Primary method: check 'capabilities' list from /api/show (Ollama ≥ 0.8).
+    Fallback: check for CLIP in families, projector_info, vision model_info keys,
+    or known vision family names.
     """
     try:
-        # First try to get detailed model info from /api/show
         show_response = requests.post(
             f"{base_url}/api/show",
             json={"name": model_name},
@@ -454,57 +1069,124 @@ def is_vision_model(model_name, base_url):
         
         if show_response.status_code == 200:
             show_data = show_response.json()
-            details = show_data.get('details', {})
             
-            # Check 1: Does it have 'clip' in families? (vision encoder)
+            # ── Primary: 'capabilities' field (most reliable) ──
+            capabilities = show_data.get('capabilities', [])
+            if 'vision' in capabilities:
+                print(f"Model {model_name} is vision-capable (capabilities={capabilities})")
+                return True
+            if capabilities and 'vision' not in capabilities:
+                print(f"Model {model_name} is text-only (capabilities={capabilities})")
+                return False
+            
+            # ── Fallback 1: CLIP in families or projector_info ──
+            details = show_data.get('details', {})
             families = details.get('families', [])
             if 'clip' in families:
-                print(f"Model {model_name} is vision-capable (has CLIP vision encoder)")
+                print(f"Model {model_name} is vision-capable (has CLIP)")
+                return True
+            if 'projector_info' in show_data:
+                print(f"Model {model_name} is vision-capable (has projector)")
                 return True
             
-            # Check 2: Does it have projector_info? (multimodal projector)
-            if 'projector_info' in show_data:
-                print(f"Model {model_name} is vision-capable (has multimodal projector)")
+            # ── Fallback 2: vision keys in model_info ──
+            model_info = show_data.get('model_info', {})
+            if any('.vision.' in k for k in model_info.keys()):
+                print(f"Model {model_name} is vision-capable (has vision keys in model_info)")
                 return True
+            
+            # ── Fallback 3: known vision families ──
+            family = details.get('family', '').lower()
+            known_vision_families = {
+                'mllama', 'llava', 'bakllava', 'qwen3vl', 'qwen2vl',
+                'deepseekocr', 'deepseek-ocr', 'deepseek-vl', 'glm-ocr',
+                'gemma3', 'llama4',
+            }
+            if family in known_vision_families or any(f.lower() in known_vision_families for f in families):
+                print(f"Model {model_name} is vision-capable (known vision family: {family})")
+                return True
+            
+            # ── Fallback 4: keywords in model name ──
+            model_lower = model_name.lower()
+            if any(kw in model_lower for kw in ['vision', 'llava', 'bakllava', '-vl', 'deepseek-ocr', 'glm-ocr']):
+                print(f"Model {model_name} is vision-capable (name contains vision keyword)")
+                return True
+            
+            print(f"Model {model_name} appears to be text-only (family: {family}, families: {families})")
+            return False
         
-        # Fallback: Check via /api/tags (less reliable but works)
-        tags_response = requests.get(f"{base_url}/api/tags", timeout=5)
-        if tags_response.status_code != 200:
-            print(f"Warning: Could not verify if {model_name} is a vision model")
-            return True  # Assume yes if can't check
-        
-        data = tags_response.json()
-        models = data.get('models', [])
-        
-        for m in models:
-            if m.get('name') == model_name:
-                details = m.get('details', {})
-                family = details.get('family', '').lower()
-                families = details.get('families', [])
-                
-                # Check for 'clip' in families
-                if 'clip' in families:
-                    print(f"Model {model_name} is vision-capable (has CLIP in families)")
-                    return True
-                
-                # Check for known vision families
-                vision_families = ['mllama', 'llava', 'bakllava', 'gemma3', 'gemma2']
-                if family in vision_families or any(f in vision_families for f in families):
-                    return True
-                
-                # Check for vision keywords in model name
-                model_lower = model_name.lower()
-                if any(keyword in model_lower for keyword in ['vision', 'llava', 'bakllava']):
-                    return True
-                
-                # If we got here, it's likely text-only
-                print(f"Model {model_name} appears to be text-only (family: {family}, families: {families})")
-                return False
-        
-        # Model not found in list, assume it might support vision
-        print(f"Warning: Model {model_name} not found in Ollama list")
+        # If /api/show failed, assume vision to avoid blocking
+        print(f"Warning: Could not verify if {model_name} is a vision model")
         return True
         
     except Exception as e:
         print(f"Error checking if model is vision-capable: {e}")
         return True  # Assume yes on error to avoid blocking
+
+def parse_extraction_result(response_text, fields_to_extract, ocr_text=None):
+    """
+    Parse the extraction result from Ollama, handling various response formats.
+    """
+    import re
+    
+    try:
+        result = json.loads(response_text)
+    except json.JSONDecodeError as je:
+        print(f"JSON decode error: {je}")
+        print(f"Raw response (first 500 chars): {response_text[:500]}")
+        
+        # Try to extract JSON from response
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            try:
+                result = json.loads(json_match.group())
+            except:
+                raise Exception(f"Could not parse JSON response")
+        else:
+            raise Exception(f"No JSON found in response")
+    
+    # Validate structure
+    if "extraction_results" not in result:
+        result = {
+            "extraction_results": {
+                "overall_confidence": 50,
+                "reasoning": "Response format was unexpected",
+                "data": result if isinstance(result, dict) else {},
+                "additional_request_result": None
+            }
+        }
+    
+    extraction_results = result.get("extraction_results", {})
+    data = extraction_results.get("data", {})
+    
+    # Process per-field confidence format
+    processed_data = {}
+    field_confidences = []
+    
+    for field_key in fields_to_extract.keys():
+        field_data = data.get(field_key)
+        
+        if isinstance(field_data, dict) and "value" in field_data:
+            processed_data[field_key] = field_data.get("value")
+            confidence = field_data.get("confidence", 50)
+            field_confidences.append(confidence)
+            
+            if confidence < 50:
+                print(f"⚠️ Low confidence ({confidence}%) for field '{field_key}': {field_data.get('value')}")
+        else:
+            processed_data[field_key] = field_data
+            field_confidences.append(50)
+    
+    overall_confidence = int(sum(field_confidences) / len(field_confidences)) if field_confidences else 0
+    
+    if "overall_confidence" not in extraction_results:
+        extraction_results["overall_confidence"] = overall_confidence
+    
+    extraction_results["confidence_score"] = extraction_results.get("overall_confidence", overall_confidence)
+    extraction_results["data"] = processed_data
+    
+    # Add OCR text reference if available
+    if ocr_text:
+        extraction_results["ocr_preview"] = ocr_text[:500] + "..." if len(ocr_text) > 500 else ocr_text
+    
+    return result
