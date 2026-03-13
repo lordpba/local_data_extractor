@@ -59,9 +59,31 @@ VISION_MODELS = {
                 "recommended": True
             },
             {
+                "name": "qwen3.5:9b",
+                "display_name": "Qwen3.5 9B",
+                "size": "~6.6GB",
+                "vram": "8-10GB",
+                "speed": "Medium",
+                "accuracy": "Very Good",
+                "description": "Excellent balance of size and performance for OCR and document extraction. Highly recommended.",
+                "use_case": "General OCR and complex document extraction",
+                "recommended": True
+            },
+            {
+                "name": "qwen3.5:4b",
+                "display_name": "Qwen3.5 4B",
+                "size": "~3.4GB",
+                "vram": "5-6GB",
+                "speed": "Fast",
+                "accuracy": "Good",
+                "description": "Smaller, faster Qwen3.5 model. Good for standard OCR tasks.",
+                "use_case": "Standard document extraction",
+                "recommended": True
+            },
+            {
                 "name": "qwen3-vl:8b",
                 "display_name": "Qwen3 VL 8B",
-                "size": "~5GB",
+                "size": "~6.1GB",
                 "vram": "7-8GB",
                 "speed": "Medium",
                 "accuracy": "Very Good",
@@ -145,6 +167,17 @@ VISION_MODELS = {
                 "use_case": "Maximum accuracy for critical documents"
             },
             {
+                "name": "qwen3.5:27b",
+                "display_name": "Qwen3.5 27B",
+                "size": "~17GB",
+                "vram": "22-26GB",
+                "speed": "Slow",
+                "accuracy": "Excellent",
+                "description": "Large Qwen3.5 model with exceptional reasoning and OCR capabilities.",
+                "use_case": "Maximum accuracy for critical documents and handwriting",
+                "recommended": True
+            },
+            {
                 "name": "llama3.2-vision:90b",
                 "display_name": "Llama 3.2 Vision 90B",
                 "size": "~55GB",
@@ -172,18 +205,18 @@ HARDWARE_RECOMMENDATIONS = {
     },
     "gpu_6gb": {
         "category": "medium",
-        "recommended_models": ["glm-ocr:latest", "deepseek-ocr:latest", "gemma3:4b", "llava-phi3:3.8b"],
-        "note": "GLM-OCR is the best OCR choice; deepseek-ocr is a solid alternative."
+        "recommended_models": ["glm-ocr:latest", "deepseek-ocr:latest", "qwen3.5:4b", "gemma3:4b"],
+        "note": "GLM-OCR is the best OCR choice; qwen3.5:4b is excellent for JSON extraction."
     },
     "gpu_8gb": {
         "category": "medium",
-        "recommended_models": ["glm-ocr:latest", "deepseek-ocr:latest", "gemma3:4b", "qwen3-vl:8b", "llava:7b"],
-        "note": "GLM-OCR or deepseek-ocr for OCR tasks; gemma3:4b for reasoning-heavy extraction; qwen3-vl for multilingual."
+        "recommended_models": ["glm-ocr:latest", "qwen3.5:9b", "deepseek-ocr:latest", "gemma3:4b"],
+        "note": "qwen3.5:9b is highly recommended for all-around accuracy. GLM-OCR for pure OCR."
     },
     "gpu_12gb": {
         "category": "large",
-        "recommended_models": ["glm-ocr:latest", "llama3.2-vision:11b", "gemma3:12b", "qwen3-vl:8b", "llava:13b"],
-        "note": "GLM-OCR leaves 9GB free; llama3.2-vision:11b for complex reasoning; qwen3-vl for multilingual."
+        "recommended_models": ["qwen3.5:9b", "llama3.2-vision:11b", "glm-ocr:latest", "gemma3:12b"],
+        "note": "qwen3.5:9b is the best balanced choice; llama3.2-vision:11b for complex reasoning."
     },
     "gpu_16gb": {
         "category": "large",
@@ -192,8 +225,8 @@ HARDWARE_RECOMMENDATIONS = {
     },
     "gpu_24gb": {
         "category": "professional",
-        "recommended_models": ["gemma3:27b"],
-        "note": "Professional-grade accuracy and capabilities."
+        "recommended_models": ["qwen3.5:27b", "gemma3:27b"],
+        "note": "qwen3.5:27b offers exceptional accuracy for complex documents."
     },
     "gpu_48gb_plus": {
         "category": "professional",
@@ -277,11 +310,11 @@ def get_family_tiers():
             }
         },
         "qwen3vl": {
-            "label": "Qwen3 VL (Multilingual)",
+            "label": "Qwen3 VL / 3.5",
             "tiers": {
-                "small": "qwen3-vl:8b",
-                "medium": None,
-                "large": None
+                "small": "qwen3.5:4b",
+                "medium": "qwen3.5:9b",
+                "large": "qwen3.5:27b"
             }
         }
     }

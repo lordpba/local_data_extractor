@@ -51,7 +51,7 @@ def strip_thinking_tags(text):
     return text.strip()
 
 
-def process_document(filepath, mime_type):
+def process_document(filepath, mime_type, page_range="all"):
     """
     Process document based on type:
     - Images: return as base64
@@ -60,7 +60,7 @@ def process_document(filepath, mime_type):
     if mime_type.startswith('image/'):
         return process_image(filepath)
     elif mime_type == 'application/pdf':
-        return process_pdf(filepath)
+        return process_pdf(filepath, page_range)
     else:
         raise ValueError(f"Unsupported file type: {mime_type}")
 
@@ -140,7 +140,7 @@ def downscale_base64_image(base64_image, max_width=1152, jpeg_quality=85):
         return base64_image
 
 
-def process_pdf(pdf_path):
+def process_pdf(pdf_path, page_range="all"):
     """
     Process PDF by converting pages to images
     Returns array of base64 encoded images
@@ -152,7 +152,17 @@ def process_pdf(pdf_path):
         print(f"Converting PDF to images: {pdf_path}")
         # Model-aware rendering: DeepSeek OCR is more stable with moderate resolutions
         pdf_dpi = 220 if deepseek_mode else 300
-        images = convert_from_path(pdf_path, dpi=pdf_dpi)
+        
+        last_page = None
+        if page_range == "first":
+            last_page = 1
+        elif page_range != "all":
+            try:
+                last_page = int(page_range)
+            except ValueError:
+                pass
+                
+        images = convert_from_path(pdf_path, dpi=pdf_dpi, last_page=last_page)
         print(f"PDF converted to {len(images)} page(s)")
         
         # Limit pages to avoid huge payloads
@@ -347,9 +357,9 @@ def single_pass_extraction(
     if extraction_strategy == 'auto':
         if is_ocr_specialist_model(model_name):
             chosen_strategy = 'ocr_specialist'
-        elif handwriting_mode:
-            chosen_strategy = 'ocr_then_extract'
         else:
+            # For most models (especially Qwen/Llama vision), single_pass is much more robust
+            # than OCR-first, which often loses structure or causes JSON schema issues.
             chosen_strategy = 'single_pass'
     elif extraction_strategy == 'ocr_then_extract':
         chosen_strategy = 'ocr_then_extract'
@@ -657,7 +667,7 @@ For each field below, extract the EXACT text as written:
 
 {f"ADDITIONAL REQUEST: {additional_request}" if additional_request else ""}
 
-OUTPUT FORMAT: Return ONLY valid JSON:
+OUTPUT FORMAT: Return ONLY valid JSON matching this exact structure:
 {{
   "extraction_results": {{
     "overall_confidence": 0,
@@ -669,7 +679,7 @@ OUTPUT FORMAT: Return ONLY valid JSON:
   }}
 }}
 
-Now analyze the document image and extract the requested fields."""
+Now analyze the document image and extract the requested fields. DO NOT wrap JSON in markdown blocks like ```json."""
 
     total = len(pages)
     page_extractions = []
@@ -684,6 +694,16 @@ Now analyze the document image and extract the requested fields."""
                 if total > 1 else instruction
             )
             page_response = call_ollama_vision(page_instruction, [page_image])
+            
+            # Clean possible markdown wrap
+            page_response = page_response.strip()
+            if page_response.startswith("```json"):
+                page_response = page_response[7:]
+            if page_response.startswith("```"):
+                page_response = page_response[3:]
+            if page_response.endswith("```"):
+                page_response = page_response[:-3]
+
             page_result = parse_extraction_result(page_response, fields_to_extract)
             page_extractions.append(page_result)
         except Exception as page_error:
@@ -897,7 +917,8 @@ def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_js
         "options": options
     }
     if format_json:
-        payload["format"] = "json"
+        if not any(kw in model.lower() for kw in ['qwen', 'qwq']):
+            payload["format"] = "json"
     
     print(f"[Chat API fallback] Calling {model} via /api/chat...")
     response = requests.post(url, json=payload, timeout=300)
@@ -997,9 +1018,13 @@ def call_ollama_vision(prompt, images_base64):
         "prompt": prompt,
         "images": images_base64,
         "stream": False,
-        "format": "json",  # Force JSON output
         "options": options
     }
+    
+    # Qwen models often bug out with empty responses if "format": "json" is used.
+    # We already prompt them to return raw JSON and strip markdown.
+    if not any(kw in model.lower() for kw in ['qwen', 'qwq']):
+        payload["format"] = "json"
     
     try:
         print(f"Calling Ollama with model: {model}")
@@ -1158,25 +1183,42 @@ def parse_extraction_result(response_text, fields_to_extract, ocr_text=None):
     
     extraction_results = result.get("extraction_results", {})
     data = extraction_results.get("data", {})
+    if not isinstance(data, dict):
+        data = {}
+    
+    # Map model's returned keys (might have different casing) to our lowercased keys
+    data_lower_keys = {str(k).lower().strip(): k for k in data.keys()}
     
     # Process per-field confidence format
     processed_data = {}
     field_confidences = []
     
     for field_key in fields_to_extract.keys():
-        field_data = data.get(field_key)
+        # Match case-insensitively
+        actual_key = data_lower_keys.get(field_key.lower().strip())
+        field_data = data.get(actual_key) if actual_key else None
         
         if isinstance(field_data, dict) and "value" in field_data:
             processed_data[field_key] = field_data.get("value")
-            confidence = field_data.get("confidence", 50)
+            raw_conf = field_data.get("confidence", 50)
+            
+            # Fix if model returns confidence as 0.99 instead of 99
+            if isinstance(raw_conf, float) and raw_conf <= 1.0:
+                raw_conf = raw_conf * 100
+            
+            try:
+                confidence = int(raw_conf)
+            except:
+                confidence = 50
+                
             field_confidences.append(confidence)
             
             if confidence < 50:
-                print(f"⚠️ Low confidence ({confidence}%) for field '{field_key}': {field_data.get('value')}")
+                print(f"⚠️ Low confidence ({confidence}%) for field '{field_key}': {processed_data[field_key]}")
         else:
             processed_data[field_key] = field_data
             field_confidences.append(50)
-    
+            
     overall_confidence = int(sum(field_confidences) / len(field_confidences)) if field_confidences else 0
     
     if "overall_confidence" not in extraction_results:

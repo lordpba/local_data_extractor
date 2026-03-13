@@ -434,11 +434,38 @@ def get_recommended_models():
 
 @app.route('/models/current', methods=['GET'])
 def get_current_model():
-    """Get currently configured model"""
+    """Get currently configured model and ollama URL"""
     current_model = os.environ.get('OLLAMA_MODEL', 'llama3.2-vision:11b')
+    current_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
     return jsonify({
         "current_model": current_model,
-        "ollama_url": os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+        "ollama_url": current_url
+    }), 200
+
+@app.route('/config/ollama-url', methods=['POST'])
+def set_ollama_url():
+    """Set the remote Ollama URL"""
+    data = request.get_json()
+    new_url = data.get('url')
+    
+    if not new_url:
+        return jsonify({"error": "URL is required"}), 400
+
+    # Basic validation
+    if not new_url.startswith('http://') and not new_url.startswith('https://'):
+        new_url = f"http://{new_url}"
+
+    # Strip trailing slash
+    new_url = new_url.rstrip('/')
+
+    os.environ['OLLAMA_BASE_URL'] = new_url
+    
+    print(f"Ollama URL set to: {new_url}")
+    
+    return jsonify({
+        "success": True,
+        "ollama_url": new_url,
+        "message": "Ollama URL updated"
     }), 200
 
 @app.route('/models/set', methods=['POST'])
@@ -587,20 +614,7 @@ def extract_data_route():
 
                 try:
                     # Process document (extract text/image)
-                    document_content = process_document(filepath, file.mimetype)
-
-                    # Apply page_range filtering for PDFs
-                    if document_content.get("type") == "pdf" and page_range != "all":
-                        pages = document_content.get("pages", [])
-                        if page_range == "first":
-                            document_content["pages"] = pages[:1]
-                        else:
-                            try:
-                                n = int(page_range)
-                                document_content["pages"] = pages[:n]
-                            except ValueError:
-                                pass  # keep all pages on invalid input
-                        print(f"Page range '{page_range}': processing {len(document_content.get('pages', []))} of {len(pages)} pages")
+                    document_content = process_document(filepath, file.mimetype, page_range)
 
                     # Capture preview images (first 3 pages max) for the validation UI
                     preview_images = []

@@ -9,7 +9,7 @@ echo ""
 echo "Checking if server is running on http://localhost:5000..."
 if ! curl -s http://localhost:5000/health > /dev/null; then
     echo "❌ Server is not running"
-    echo "Start it with: python app.py"
+    echo "Start it with: python src/app.py"
     exit 1
 else
     echo "✅ Server is running"

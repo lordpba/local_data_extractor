@@ -96,12 +96,12 @@ echo ""
 if [ -z "$VIRTUAL_ENV" ]; then
     echo "To start the application:"
     echo "  1. Activate virtual environment: source .venv/bin/activate"
-    echo "  2. Run the app: python app.py"
+    echo "  2. Run the app: python src/app.py"
     echo "  3. Open browser at: http://localhost:5000"
 else
     echo "Virtual environment is active!"
     echo "To start the application:"
-    echo "  1. Run the app: python app.py"
+    echo "  1. Run the app: python src/app.py"
     echo "  2. Open browser at: http://localhost:5000"
 fi
 echo ""
