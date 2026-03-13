@@ -1,4 +1,10 @@
+
 # Local Data Extractor 📄⚡
+
+> **NEW: Use a Remote DGX as Your Local Vision LLM Provider!**
+>
+> You can connect the extractor to a powerful remote DGX (or any server with GPUs) running [Ollama](https://ollama.ai) and use it as your private LLM Vision backend—directly from your laptop or office PC. This enables blazing-fast, enterprise-grade document extraction with full privacy, as all data stays within your network. Just set the `OLLAMA_BASE_URL` to your DGX/server IP, or change it live from the web UI!
+
 
 A 100% privacy-compliant, local AI-powered document extraction tool. Perfect for public administrations, law firms, and anyone handling sensitive data. It uses Vision LLMs (like Qwen, Llama3.2-Vision, DeepSeek) through [Ollama](https://ollama.ai) to extract structured data from any PDF or image into Excel, without ever sending your data to the cloud.
 
@@ -70,17 +76,18 @@ python src/app.py
 
 ---
 
+
 ## Configuration 🛠️
 
 You can configure the application using environment variables or a `.env` file (copy `.env.example` to `.env`):
 
 ```env
-OLLAMA_BASE_URL=http://localhost:11434    # Point this to your remote DGX / Server IP if needed
+OLLAMA_BASE_URL=http://localhost:11434    # Point this to your remote DGX / Server IP to use a remote GPU as your LLM Vision provider
 OLLAMA_MODEL=llama3.2-vision:11b          # Default model
 PORT=5000                                 # Web UI port
 ```
 
-**Note:** You can also dynamically change the Ollama IP and the Model directly from the Web Interface without restarting the application!
+**Note:** You can also dynamically change the Ollama IP (including a remote DGX or server) and the Model directly from the Web Interface without restarting the application!
 
 ---
 
