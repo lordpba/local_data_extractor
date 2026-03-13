@@ -1502,7 +1502,7 @@ CRITICAL INSTRUCTIONS:
         // ===== THEME =====
         function toggleTheme() {
             const html = document.documentElement;
-            const current = html.getAttribute('data-theme') || 'light';
+            const current = html.getAttribute('data-theme') || 'dark';
             const next = current === 'light' ? 'dark' : 'light';
             html.setAttribute('data-theme', next);
             localStorage.setItem('lde-theme', next);
@@ -1510,7 +1510,7 @@ CRITICAL INSTRUCTIONS:
         }
 
         function loadTheme() {
-            const saved = localStorage.getItem('lde-theme') || 'light';
+            const saved = localStorage.getItem('lde-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', saved);
             updateThemeButton(saved);
         }
@@ -1989,6 +1989,12 @@ CRITICAL INSTRUCTIONS:
                         renderCurrentDoc();
                     }
                     updateValidationProgress();
+
+                    // Cool down pause between files to prevent Ollama from choking
+                    if (i < totalFiles - 1 && !extractionAborted) {
+                        document.getElementById('loadingText').textContent = `Cooling down for 2s before next document...`;
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
 
                 } catch (error) {
                     console.error(`Error extracting ${file.name}:`, error);

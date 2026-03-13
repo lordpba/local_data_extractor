@@ -602,7 +602,7 @@ def extract_data_route():
 
     results = []
     try:
-        for file in files:
+        for i, file in enumerate(files):
             if file and allowed_file(file.filename):
                 file_start = time.time()
                 print(f"Processing file: {file.filename}")
@@ -653,6 +653,10 @@ def extract_data_route():
                     # Clean up temp file
                     if os.path.exists(filepath):
                         os.remove(filepath)
+                    
+                    # Cool down between multiple files in same request
+                    if i < len(files) - 1:
+                        time.sleep(2.0)
             else:
                 print(f"Invalid or not allowed file skipped: {file.filename}")
 
