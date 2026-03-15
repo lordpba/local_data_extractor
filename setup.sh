@@ -8,37 +8,37 @@ echo ""
 # Check if Ollama is installed
 echo "[1/5] Checking Ollama installation..."
 if ! command -v ollama &> /dev/null; then
-    echo "❌ Ollama is not installed."
-    echo "Please install Ollama from: https://ollama.ai"
-    echo "Or run: curl -fsSL https://ollama.ai/install.sh | sh"
-    exit 1
+    echo "⚠️  Ollama is not installed locally. Downloading and installing..."
+    curl -fsSL https://ollama.ai/install.sh | sh
+    if ! command -v ollama &> /dev/null; then
+        echo "❌ Failed to automatically install Ollama. Please install manually if needed."
+        echo "If you plan to use a remote Ollama, you can ignore this."
+    else
+        echo "✅ Ollama installed successfully"
+    fi
 else
     echo "✅ Ollama is installed"
 fi
 
 # Check if Ollama is running
 echo ""
-echo "[2/5] Checking if Ollama server is running..."
+echo "[2/5] Checking if local Ollama server is running..."
 if ! curl -s http://localhost:11434/api/tags > /dev/null; then
-    echo "❌ Ollama server is not running."
-    echo "Please start Ollama with: ollama serve"
-    exit 1
+    echo "⚠️  Local Ollama server is not running or not accessible."
+    echo "If you are using a local instance, please start Ollama with: ollama serve"
+    echo "If you are using a remote instance, ensure it is properly configured in the .env file later."
 else
     echo "✅ Ollama server is running"
 fi
 
-# Pull the multimodal model
+# Model configuration details
 echo ""
-echo "[3/5] Pulling multimodal model (llama3.2-vision:11b)..."
-echo "This may take a while depending on your internet connection..."
-ollama pull llama3.2-vision:11b
-
-if [ $? -eq 0 ]; then
-    echo "✅ Model pulled successfully"
-else
-    echo "❌ Failed to pull model"
-    exit 1
-fi
+echo "[3/5] Model Configuration..."
+echo "ℹ️  No models are downloaded automatically by this setup."
+echo "If you use a remote Ollama, ensure your models are available there."
+echo "For local execution, we recommend downloading a model from the qwen3.5 family,"
+echo "choosing a size appropriate for your hardware capacity (e.g. smaller sizes if you don't have a GPU)."
+echo "Example: ollama pull qwen! (replace with the exact model name and tag)"
 
 # Check Python dependencies
 echo ""
