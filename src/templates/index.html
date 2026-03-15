@@ -7,51 +7,53 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
     <style>
         :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --bg-tertiary: #e9ecef;
-            --text-primary: #212529;
-            --text-secondary: #495057;
-            --text-muted: #6c757d;
-            --border-color: #dee2e6;
-            --accent: #667eea;
-            --accent-dark: #764ba2;
-            --info-bg: #d1ecf1;
-            --info-text: #0c5460;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning-bg: #fff3cd;
-            --warning-text: #856404;
-            --input-bg: #ffffff;
-            --card-bg: #ffffff;
-            --card-border: #e9ecef;
-            --section-bg: #f8f9fa;
-            --header-gradient-start: #667eea;
-            --header-gradient-end: #764ba2;
+            /* Secure, enterprise dark theme as the default & only theme */
+            --bg-primary: #0f1115;
+            --bg-secondary: #16181d;
+            --bg-tertiary: #1c1e24;
+            --text-primary: #e6e8eb;
+            --text-secondary: #a1a6b0;
+            --text-muted: #6b707a;
+            --border-color: #2a2e37;
+            --accent: #3a7bd5;
+            --accent-dark: #2c5ba3;
+            --info-bg: #121c2b;
+            --info-text: #6ea4d2;
+            --success: #1ea362;
+            --danger: #cf4f4f;
+            --warning-bg: #332711;
+            --warning-text: #d9a036;
+            --input-bg: #090a0c;
+            --card-bg: #0f1115;
+            --card-border: #2a2e37;
+            --section-bg: #16181d;
+            --header-gradient-start: #0a0b0d;
+            --header-gradient-end: #0f1115;
         }
 
-        [data-theme="dark"] {
-            --bg-primary: #1a1d2e;
-            --bg-secondary: #252a40;
-            --bg-tertiary: #2d3149;
-            --text-primary: #ccd6f6;
-            --text-secondary: #8892b0;
-            --text-muted: #6674a8;
-            --border-color: #3d4166;
-            --accent: #667eea;
-            --accent-dark: #8b5cf6;
-            --info-bg: #1e2a4a;
-            --info-text: #7eb8c9;
-            --success: #00d897;
-            --danger: #ff6b6b;
-            --warning-bg: #3d3520;
-            --warning-text: #f0c040;
-            --input-bg: #252a40;
-            --card-bg: #1e2236;
-            --card-border: #3d4166;
-            --section-bg: #252a40;
-            --header-gradient-start: #2d1b69;
-            --header-gradient-end: #1a1d2e;
+        [data-theme="light"] {
+            /* If light mode is ever forced, it remains highly professional */
+            --bg-primary: #fdfdfd;
+            --bg-secondary: #f4f5f7;
+            --bg-tertiary: #eaecf0;
+            --text-primary: #1a1c21;
+            --text-secondary: #4a5059;
+            --text-muted: #808693;
+            --border-color: #d1d5db;
+            --accent: #2563eb;
+            --accent-dark: #1d4ed8;
+            --info-bg: #e0f2fe;
+            --info-text: #0369a1;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning-bg: #fef3c7;
+            --warning-text: #b45309;
+            --input-bg: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --section-bg: #f8fafc;
+            --header-gradient-start: #111827;
+            --header-gradient-end: #1f2937;
         }
 
         * {
@@ -77,21 +79,72 @@
         }
 
         .header {
-            background: linear-gradient(135deg, var(--header-gradient-start) 0%, var(--header-gradient-end) 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+            background: var(--header-gradient-start);
+            border-bottom: 1px solid var(--border-color);
+            color: #fff;
+            padding: 25px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             position: relative;
         }
 
+        .header-title-area {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
         .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            font-size: 1.8em;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        
+        .badge-secure {
+            background: rgba(30, 163, 98, 0.15);
+            color: #1ea362;
+            border: 1px solid rgba(30, 163, 98, 0.3);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .badge-offline {
+            background: rgba(58, 123, 213, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(58, 123, 213, 0.3);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-top: 5px;
         }
 
         .content {
@@ -135,8 +188,8 @@
         }
 
         .file-upload.dragover {
-            background: #d4d7ff;
-            border-color: #667eea;
+            background: rgba(58, 123, 213, 0.05);
+            border-color: var(--accent);
         }
 
         .file-upload input[type="file"] {
@@ -283,21 +336,22 @@
 
         .btn-extract {
             width: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--accent);
             color: white;
             border: none;
-            padding: 18px;
-            font-size: 1.3em;
+            padding: 16px;
+            font-size: 1.1em;
             font-weight: 600;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
             margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(58, 123, 213, 0.2);
         }
 
         .btn-extract:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            background: var(--accent-dark);
+            transform: translateY(-1px);
         }
 
         .btn-extract:disabled {
@@ -317,11 +371,11 @@
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--accent);
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
         }
@@ -429,9 +483,14 @@
         .info-box {
             background: var(--info-bg);
             color: var(--info-text);
-            padding: 15px;
-            border-radius: 6px;
+            padding: 12px 16px;
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
             margin-bottom: 20px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .model-selection {
@@ -584,8 +643,9 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            background: #1a1d2e;
+            background: var(--bg-tertiary);
             min-width: 0;
+            border-left: 1px solid var(--border-color);
         }
         .validation-empty-state {
             flex: 1;
@@ -597,10 +657,10 @@
             text-align: center;
             padding: 40px;
         }
-        .validation-empty-state .empty-icon { font-size: 3.5em; margin-bottom: 16px; opacity: 0.4; }
-        .validation-empty-state h3 { font-size: 1.2em; color: #5a6498; margin-bottom: 8px; }
-        .validation-empty-state p { color: #4a5080; line-height: 1.7; font-size: 0.95em; }
-        .validation-empty-state strong { color: #667eea; }
+        .validation-empty-state .empty-icon { font-size: 3em; margin-bottom: 16px; opacity: 0.3; }
+        .validation-empty-state h3 { font-size: 1.2em; color: var(--text-primary); margin-bottom: 8px; }
+        .validation-empty-state p { color: var(--text-secondary); line-height: 1.7; font-size: 0.95em; }
+        .validation-empty-state strong { color: var(--text-primary); }
 
         /* Active validation state */
         .validation-active { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
@@ -610,42 +670,43 @@
             display: flex;
             align-items: center;
             gap: 0;
-            background: #10131f;
-            border-bottom: 2px solid #252a40;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
             overflow-x: auto;
             flex-shrink: 0;
             scrollbar-width: thin;
-            scrollbar-color: #3d4166 transparent;
+            scrollbar-color: var(--border-color) transparent;
         }
         .file-tabs-bar::-webkit-scrollbar { height: 4px; }
-        .file-tabs-bar::-webkit-scrollbar-thumb { background: #3d4166; border-radius: 2px; }
+        .file-tabs-bar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
         .file-tab {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 9px 16px;
+            padding: 10px 16px;
             background: transparent;
-            color: #6674a8;
+            color: var(--text-secondary);
             border: none;
-            border-bottom: 3px solid transparent;
+            border-bottom: 2px solid transparent;
             cursor: pointer;
-            font-size: 0.78em;
+            font-size: 0.8em;
             font-weight: 600;
             white-space: nowrap;
             transition: all 0.2s;
             flex-shrink: 0;
         }
-        .file-tab:hover { color: #ccd6f6; background: #1a1d30; }
-        .file-tab.active { color: #ccd6f6; border-bottom-color: #667eea; background: #1a1d30; }
-        .file-tab.tab-validated { color: #00d897; }
-        .file-tab.tab-validated.active { border-bottom-color: #00d897; }
+        .file-tab:hover { color: var(--text-primary); background: var(--bg-secondary); }
+        .file-tab.active { color: var(--text-primary); border-bottom-color: var(--accent); background: var(--bg-secondary); }
+        .file-tab.tab-validated { color: var(--success); }
+        .file-tab.tab-validated.active { border-bottom-color: var(--success); }
         .file-tab .tab-num {
-            background: #667eea; color: #fff;
-            width: 20px; height: 20px; border-radius: 50%;
+            background: var(--border-color); color: var(--text-primary);
+            width: 20px; height: 20px; border-radius: 4px;
             display: inline-flex; align-items: center; justify-content: center;
-            font-size: 0.75em; font-weight: 800;
+            font-size: 0.75em; font-weight: 700;
         }
-        .file-tab.tab-validated .tab-num { background: #00d897; color: #003d1a; }
+        .file-tab.active .tab-num { background: var(--accent); color: white; }
+        .file-tab.tab-validated .tab-num { background: var(--success); color: white; }
 
         .q-badge {
             padding: 1px 6px;
@@ -666,24 +727,24 @@
             overflow-y: auto;
             overflow-x: hidden;
             scrollbar-width: thin;
-            scrollbar-color: #3d4166 transparent;
+            scrollbar-color: var(--border-color) transparent;
         }
         .validation-detail::-webkit-scrollbar { width: 6px; }
-        .validation-detail::-webkit-scrollbar-thumb { background: #3d4166; border-radius: 3px; }
+        .validation-detail::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
         /* Panel headers */
         .v-panel-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 6px 14px;
-            background: #141622;
-            border-bottom: 1px solid #252a40;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
             gap: 8px;
             flex-wrap: wrap;
         }
-        .v-panel-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.1em; color: #8892b0; text-transform: uppercase; }
-        .v-panel-subtitle { font-size: 0.72em; color: #4a5080; text-transform: uppercase; letter-spacing: 0.05em; }
+        .v-panel-title { font-size: 0.75em; font-weight: 700; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase; }
+        .v-panel-subtitle { font-size: 0.72em; color: var(--text-muted); text-transform: uppercase; }
 
         /* Image toggle button */
         .btn-toggle-image {
@@ -831,38 +892,25 @@
         }
 
         /* ===== THEME TOGGLE ===== */
-        .theme-toggle {
-            position: absolute;
-            top: 12px;
-            right: 18px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .theme-toggle, .help-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 0.85em;
-            transition: all 0.3s;
-            backdrop-filter: blur(4px);
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .theme-toggle:hover { background: rgba(255,255,255,0.25); }
-
-        /* ===== HELP BUTTON ===== */
-        .help-btn {
-            position: absolute;
-            top: 12px;
-            left: 18px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.85em;
-            transition: all 0.3s;
-            backdrop-filter: blur(4px);
-        }
-        .help-btn:hover { background: rgba(255,255,255,0.25); }
+        .theme-toggle:hover, .help-btn:hover { background: var(--bg-secondary); }
 
         /* ===== TEMPLATE PRESETS ===== */
         .preset-row {
@@ -1118,10 +1166,20 @@
 <body>
     <div class="container">
         <div class="header">
-            <button class="help-btn" onclick="showHelp()">? Help</button>
-            <h1>📄 Local Data Extractor</h1>
-            <p>Upload documents and extract structured data with AI</p>
-            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙 Dark</button>
+            <div class="header-title-area">
+                <h1>
+                    <span>Local Data Extractor</span> 
+                    <span style="font-size:0.4em; color:var(--text-secondary); background:var(--bg-secondary); border:1px solid var(--border-color); padding:2px 6px; border-radius:4px; font-weight: 600;">v{{ version }}</span>
+                </h1>
+                <div class="header-badges">
+                    <div class="badge-offline">🔒 100% OFFLINE</div>
+                    <div class="badge-secure">🛡️ SECURE ENVIRONMENT</div>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button class="help-btn" onclick="showHelp()">? HELP</button>
+            </div>
         </div>
 
         <div class="app-body">
@@ -1129,12 +1187,12 @@
             <!-- ===== LEFT: CONFIG PANEL ===== -->
             <div class="config-panel">
                 <div class="info-box" id="infoBox">
-                    <strong>Supported formats:</strong> PDF, JPG, JPEG, PNG
+                    <span style="font-size: 1.2em;">🛡️</span> No data leaves this device. All processing is strictly performed locally.
                 </div>
 
                 <!-- Model Selection Section -->
                 <div class="section">
-                    <h2 class="section-title">0. Select Model & Server</h2>
+                    <h2 class="section-title">0. Select Model & Endpoint</h2>
                     <div class="model-selection">
                         <div class="current-model" id="currentModel">
                             <strong>Current Model:</strong> <span id="currentModelName">Loading...</span><br>
@@ -1142,8 +1200,8 @@
                         </div>
                         
                         <div style="margin-bottom: 15px; display: flex; gap: 10px;">
-                            <input type="text" id="ollamaUrlInput" class="model-select" placeholder="e.g. http://192.168.1.100:11434" style="flex: 1; margin: 0;">
-                            <button class="btn-template" onclick="setOllamaUrl()">Set Server</button>
+                            <input type="text" id="ollamaUrlInput" class="model-select" placeholder="e.g. http://127.0.0.1:11434" style="flex: 1; margin: 0;">
+                            <button class="btn-template" onclick="setOllamaUrl()">Set Local AI Endpoint</button>
                         </div>
                         
                         <div style="display: flex; gap: 10px;">
@@ -1279,6 +1337,19 @@
                     </div>
                 </div>
 
+                <!-- System Info (Admin) Section -->
+                <div class="section">
+                    <h2 class="section-title" style="cursor:pointer;" onclick="toggleSystemInfo()">
+                        5. System Information <span id="sysInfoToggle">▶</span>
+                    </h2>
+                    <div id="systemInfoSection" style="display:none;">
+                        <div class="fields-container">
+                            <button type="button" class="btn-template" onclick="loadSystemInfo()">🔄 Refresh System Info</button>
+                            <pre id="sysInfoContent" style="margin-top: 15px; font-size: 0.85em; background: var(--card-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-primary); display: none; white-space: pre-wrap; word-break: break-all; font-family: monospace;"></pre>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Extract Button -->
                 <button class="btn-extract" id="extractBtn" onclick="extractData()">
                     🚀 Extract Data
@@ -1308,9 +1379,9 @@
 
                 <!-- Empty state (shown before any extraction) -->
                 <div class="validation-empty-state" id="validationEmptyState">
-                    <div class="empty-icon">📋</div>
-                    <h3>Validation Panel</h3>
-                    <p>Configure your fields on the left,<br>upload documents and click<br><strong>🚀 Extract Data</strong> to start.<br><br>Extracted fields will appear here<br>for human review and correction.</p>
+                    <div class="empty-icon">🛡️</div>
+                    <h3>Secure Processing Area</h3>
+                    <p>Setup the extraction parameters on the left.<br>Documents are processed entirely via local LLMs.<br><br>The extracted fields will be presented here<br>for compliance review and human validation.</p>
                 </div>
 
                 <!-- Active validation (shown after extraction) -->
@@ -1349,36 +1420,24 @@
     <div class="modal-overlay" id="helpModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeHelp()">Close ✕</button>
-            <h2>📄 Local Data Extractor — Help</h2>
+            <h2>📄 Local Data Extractor — Secure Processing Guide</h2>
             
-            <h3>Quick Start</h3>
+            <h3>Environment Compliance & Security</h3>
+            <p>This software operates entirely within an offline context to guarantee strict confidentiality. Documents are directly processed by the vision models stored on this hardware, and no data is transmitted to external endpoints.</p>
+
+            <h3>Procedural Guidelines</h3>
             <ul>
-                <li>Select a <strong>vision model</strong> (gemma3:27b recommended for best quality)</li>
-                <li>Upload one or more documents (PDF, JPG, PNG)</li>
-                <li>Choose a <strong>preset template</strong> or define custom fields</li>
-                <li>Click <strong>Extract Data</strong> and review results in the validation panel</li>
-                <li>Edit any field, click <strong>Validate</strong>, then <strong>Export to Excel</strong></li>
+                <li><strong>Model Deployment:</strong> Verify the local backend model. Ensure a vision-capable Local LLM is selected, sized appropriately for your hardware constraints.</li>
+                <li><strong>Data Ingestion:</strong> Securely insert valid document formats (PDF, JPG, PNG). Sensitive documents will be parsed directly in-memory.</li>
+                <li><strong>Data Targets:</strong> Utilize compliance presets or configure custom strict JSON schemas to define extraction boundaries.</li>
+                <li><strong>Verification:</strong> Upon extraction, manually review the structured payload via the Validation Panel, verifying values for critical items before Excel generation.</li>
             </ul>
 
-            <h3>Extraction Strategies</h3>
+            <h3>Execution Strategies</h3>
             <ul>
-                <li><strong>Auto</strong> — Picks the best strategy based on the model and settings</li>
-                <li><strong>Single Pass</strong> — Sends image directly to the vision model for JSON extraction (fastest)</li>
-                <li><strong>OCR → Extract</strong> — Phase 1: vision OCR reads all text. Phase 2: text-only LLM extracts structured data (best quality for handwriting)</li>
-            </ul>
-
-            <h3>Handwriting Mode</h3>
-            <p>Enable for handwritten documents. Adds extra prompts for character-by-character attention and reduces hallucination on ambiguous characters.</p>
-
-            <h3>Template Presets</h3>
-            <p>Use built-in presets for common Italian documents: Fattura, CV, Carta d'Identità, Contratto. You can also save your custom field configurations to the browser's local storage.</p>
-
-            <h3>Tips</h3>
-            <ul>
-                <li>For multi-page PDFs, use <strong>Page Range</strong> to process only relevant pages</li>
-                <li>Higher-parameter models (27B) are slower but significantly more accurate</li>
-                <li>The <strong>OCR → Extract</strong> strategy works best with models that struggle with direct JSON extraction</li>
-                <li><code>gemma3:27b</code> scored 81% on handwritten CF tests — the best local result</li>
+                <li><strong>Auto Mode</strong> — Defers strategy selection to backend logic according to file density.</li>
+                <li><strong>Secure Single Pass</strong> — Fast mapping of the document directly via the Vision LLM.</li>
+                <li><strong>OCR → Extract</strong> — Highest structural integrity pipeline. First-pass text reconstruction followed by robust data mapping. Advised for complex templates and handwriting.</li>
             </ul>
         </div>
     </div>
@@ -1499,25 +1558,47 @@ CRITICAL INSTRUCTIONS:
             renderSavedTemplates();
         });
 
-        // ===== THEME =====
-        function toggleTheme() {
-            const html = document.documentElement;
-            const current = html.getAttribute('data-theme') || 'dark';
-            const next = current === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', next);
-            localStorage.setItem('lde-theme', next);
-            updateThemeButton(next);
-        }
-
+        // Light theme enforcement - removed toggle completely for severe styling
         function loadTheme() {
-            const saved = localStorage.getItem('lde-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', saved);
-            updateThemeButton(saved);
+            document.documentElement.setAttribute('data-theme', 'dark');
         }
 
-        function updateThemeButton(theme) {
-            const btn = document.getElementById('themeToggle');
-            btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
+        // ===== SYSTEM INFO =====
+        function toggleSystemInfo() {
+            const section = document.getElementById('systemInfoSection');
+            const toggle = document.getElementById('sysInfoToggle');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                toggle.textContent = '▼';
+                loadSystemInfo(); // Auto load first time
+            } else {
+                section.style.display = 'none';
+                toggle.textContent = '▶';
+            }
+        }
+
+        async function loadSystemInfo() {
+            const content = document.getElementById('sysInfoContent');
+            try {
+                content.style.display = 'block';
+                content.textContent = 'Loading system parameters...';
+                
+                const response = await fetch('/api/system_info');
+                const data = await response.json();
+                
+                let text = "=== BACKEND SYSTEM STATUS ===\n\n";
+                text += `App Version: v${data.app_version}\n`;
+                text += `Operating System: ${data.os} (${data.os_release})\n`;
+                text += `Python Runtime: ${data.python_version}\n`;
+                text += `Logical CPU Cores: ${data.cpu_count}\n`;
+                text += `Total RAM Capacity: ${data.memory_total_gb} GB\n\n`;
+                text += `Isolated Inference Server: ${data.ollama_url}\n`;
+                text += `Active Vision Model: ${data.ollama_model}\n`;
+
+                content.textContent = text;
+            } catch (err) {
+                content.textContent = `Backend connection refused or internal error: ${err}`;
+            }
         }
 
         // ===== HELP MODAL =====

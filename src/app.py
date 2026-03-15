@@ -11,6 +11,8 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from datetime import datetime
 import io
 import requests
+import psutil
+import concurrent.futures
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +34,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuration
+VERSION = "1.0.0"
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 UPLOAD_FOLDER = 'temp_uploads'
 
@@ -44,7 +47,25 @@ def allowed_file(filename):
 @app.route('/')
 def index():
     """Serve the web interface"""
-    return render_template('index.html')
+    return render_template('index.html', version=VERSION)
+
+@app.route('/api/system_info', methods=['GET'])
+def system_info():
+    """Return system information for the Admin UI"""
+    import platform
+    import sys
+    import psutil
+    
+    return jsonify({
+        "app_version": VERSION,
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "python_version": sys.version.split()[0],
+        "cpu_count": psutil.cpu_count(logical=True),
+        "memory_total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
+        "ollama_url": os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434'),
+        "ollama_model": os.environ.get('OLLAMA_MODEL', 'llama3.2-vision:11b'),
+    }), 200
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -89,15 +110,11 @@ def get_available_models():
         data = response.json()
         installed_models = data.get('models', [])
         
-        # Return ALL models with their info
         all_models = []
-        for model in installed_models:
+        
+        def process_model(model):
             model_name = model.get('name', '')
             details = model.get('details', {})
-            
-            # Detect if model is vision-capable
-            # Primary: use 'capabilities' from /api/show (Ollama ≥ 0.8)
-            # Fallback: CLIP families, projector_info, model_info vision keys, name keywords
             is_vision = False
             capabilities = []
             
@@ -111,40 +128,27 @@ def get_available_models():
                     show_data = show_response.json()
                     capabilities = show_data.get('capabilities', [])
                     
-                    # Primary: capabilities field
                     if 'vision' in capabilities:
                         is_vision = True
-                        print(f"✅ {model_name}: vision model (capabilities={capabilities})")
-                    elif capabilities and 'vision' not in capabilities:
-                        print(f"❌ {model_name}: text-only (capabilities={capabilities})")
+                    elif 'projector_info' in show_data:
+                        is_vision = True
                     else:
-                        # Fallback: projector_info or CLIP
-                        if 'projector_info' in show_data:
+                        families = show_data.get('details', {}).get('families', [])
+                        if 'clip' in families:
                             is_vision = True
-                            print(f"✅ {model_name}: vision model (has projector)")
                         else:
-                            show_details = show_data.get('details', {})
-                            families = show_details.get('families', [])
-                            if 'clip' in families:
+                            model_info = show_data.get('model_info', {})
+                            if any('.vision.' in k for k in model_info.keys()):
                                 is_vision = True
-                                print(f"✅ {model_name}: vision model (has CLIP)")
-                            else:
-                                # Check model_info for vision keys
-                                model_info = show_data.get('model_info', {})
-                                if any('.vision.' in k for k in model_info.keys()):
-                                    is_vision = True
-                                    print(f"✅ {model_name}: vision model (vision keys in model_info)")
             except Exception as e:
-                print(f"Warning: Could not check {model_name}: {e}")
+                pass
             
-            # Last-resort fallback: known vision keywords in model name
             if not is_vision and not capabilities:
                 model_lower = model_name.lower()
                 if any(kw in model_lower for kw in ['llava', 'vision', '-vl', 'bakllava', 'deepseek-ocr', 'deepseek-vl', 'glm-ocr']):
                     is_vision = True
-                    print(f"✅ {model_name}: vision model (name match)")
             
-            all_models.append({
+            return {
                 'name': model_name,
                 'size': model.get('size', 0),
                 'modified_at': model.get('modified_at', ''),
@@ -152,7 +156,15 @@ def get_available_models():
                 'family': details.get('family', 'Unknown'),
                 'quantization': details.get('quantization_level', 'Unknown'),
                 'is_vision': is_vision
-            })
+            }
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_model = [executor.submit(process_model, m) for m in installed_models]
+            for future in concurrent.futures.as_completed(future_to_model):
+                all_models.append(future.result())
+                
+        # Sort back to roughly preserve order (optional but nice)
+        all_models.sort(key=lambda x: x['name'])
 
         return jsonify({'models': all_models}), 200
     
@@ -688,22 +700,25 @@ def export_excel():
         ws = wb.active
         ws.title = "Extraction Results"
         
-        # Collect all unique fields from all results
-        all_fields = set()
+        # Collect unique fields while preserving order dynamically
+        ordered_fields = []
+        seen = set()
         for result in results:
             # Prefer edited_data (human validated) if available
             edited_data = result.get('edited_data')
             if edited_data and isinstance(edited_data, dict):
-                all_fields.update(edited_data.keys())
+                keys = edited_data.keys()
             else:
                 extraction_data = result.get('extraction', {}).get('extraction_results', {}).get('data', {})
-                all_fields.update(extraction_data.keys())
-        
-        # Sort fields for consistent column order
-        sorted_fields = sorted(all_fields)
+                keys = extraction_data.keys()
+                
+            for k in keys:
+                if k not in seen:
+                    seen.add(k)
+                    ordered_fields.append(k)
         
         # Create header row: Filename + fields + Validated + Confidence
-        headers = ['Filename'] + sorted_fields + ['Validated', 'Confidence Score']
+        headers = ['Filename'] + ordered_fields + ['Validated', 'Confidence Score']
         ws.append(headers)
         
         # Style header
@@ -731,7 +746,7 @@ def export_excel():
             
             # Build row
             row = [filename]
-            for field in sorted_fields:
+            for field in ordered_fields:
                 value = data_dict.get(field, '')
                 # Handle None values
                 if value is None:

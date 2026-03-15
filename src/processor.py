@@ -16,6 +16,13 @@ def get_ollama_model():
     return os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b")
 
 
+def get_ollama_timeout():
+    try:
+        return int(os.getenv("OLLAMA_TIMEOUT", "3600"))
+    except ValueError:
+        return 3600
+
+
 def is_deepseek_ocr_model(model_name):
     model_lower = (model_name or "").lower()
     return "deepseek-ocr" in model_lower
@@ -584,7 +591,7 @@ OUTPUT FORMAT:
                 "num_keep": 0,
             },
         }
-        response = requests.post(f"{base_url}/api/generate", json=payload, timeout=300)
+        response = requests.post(f"{base_url}/api/generate", json=payload, timeout=get_ollama_timeout())
         response.raise_for_status()
         result_text = response.json().get("response", "{}")
         if thinking:
@@ -903,25 +910,26 @@ def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_js
     """
     url = f"{base_url}/api/chat"
     
-    # Build content parts: text + images
-    content_parts = [{"type": "text", "text": prompt}]
-    for img in images_base64:
-        content_parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}})
-    
+    # In Ollama API, images go inside the message object!
     payload = {
         "model": model,
         "messages": [
-            {"role": "user", "content": prompt, "images": images_base64}
+            {
+                "role": "user", 
+                "content": prompt, 
+                "images": images_base64
+            }
         ],
         "stream": False,
         "options": options
     }
+    
     if format_json:
         if not any(kw in model.lower() for kw in ['qwen', 'qwq']):
             payload["format"] = "json"
     
     print(f"[Chat API fallback] Calling {model} via /api/chat...")
-    response = requests.post(url, json=payload, timeout=300)
+    response = requests.post(url, json=payload, timeout=get_ollama_timeout())
     response.raise_for_status()
     result = response.json()
     message = result.get("message", {})
@@ -957,17 +965,17 @@ def call_ollama_vision_raw(prompt, images_base64):
     }
 
     try:
-        print(f"[OCR Phase 1] Calling {model} for raw text extraction...")
-        response = requests.post(url, json=payload, timeout=300)
-        response.raise_for_status()
-        result = response.json()
-        response_text = result.get("response", "")
-        
-        # Fallback to /api/chat if generate returned empty (qwen3-vl, etc.)
-        if not response_text:
-            print("[OCR Phase 1] Empty from /api/generate, trying /api/chat fallback...")
+        if any(kw in model.lower() for kw in ['qwen', 'qwq']):
+            print(f"[OCR Phase 1] By-passing /api/generate for {model}, using /api/chat directly...")
             response_text = _call_ollama_chat(model, prompt, images_base64, base_url, options)
-        
+        else:
+            print(f"[OCR Phase 1] Calling {model} for raw text extraction...")
+            response = requests.post(url, json=payload, timeout=get_ollama_timeout())
+            response.raise_for_status()
+            result = response.json()
+            response_text = result.get("response", "")
+            
+            # Fallback to /api/chat if generate returned empty
         if not response_text:
             print("WARNING: Empty OCR response from both endpoints")
             return ""
@@ -1023,23 +1031,27 @@ def call_ollama_vision(prompt, images_base64):
     
     # Qwen models often bug out with empty responses if "format": "json" is used.
     # We already prompt them to return raw JSON and strip markdown.
-    if not any(kw in model.lower() for kw in ['qwen', 'qwq']):
+    is_qwen = any(kw in model.lower() for kw in ['qwen', 'qwq'])
+    if not is_qwen:
         payload["format"] = "json"
     
     try:
         print(f"Calling Ollama with model: {model}")
         print(f"Processing {len(images_base64)} image(s)...")
 
-        response = requests.post(url, json=payload, timeout=300)
-        response.raise_for_status()
-
-        result = response.json()
-        response_text = result.get("response", "")
-        
-        # Fallback to /api/chat if generate returned empty (qwen3-vl, etc.)
-        if not response_text:
-            print("[Vision] Empty from /api/generate, trying /api/chat fallback...")
+        if is_qwen:
+            print(f"[{model}] Routing directly to /api/chat to bypass empty /generate bug...")
             response_text = _call_ollama_chat(model, prompt, images_base64, base_url, options, format_json=True)
+        else:
+            response = requests.post(url, json=payload, timeout=get_ollama_timeout())
+            response.raise_for_status()
+            result = response.json()
+            response_text = result.get("response", "")
+            
+            # Fallback to /api/chat if generate returned empty (qwen3-vl, etc.)
+            if not response_text:
+                print("[Vision] Empty from /api/generate, trying /api/chat fallback...")
+                response_text = _call_ollama_chat(model, prompt, images_base64, base_url, options, format_json=True)
         
         if not response_text:
             print("WARNING: Empty response from Ollama (both endpoints)")
