@@ -20,6 +20,8 @@ load_dotenv()
 from processor import (
     process_document,
     extract_structured_data_with_ollama,
+    get_batch_delay,
+    unload_ollama_model,
 )
 from models_config import (
     VISION_MODELS,
@@ -600,7 +602,7 @@ def extract_data_route():
     additional_request = request.form.get('additional_request', None)
     document_type = request.form.get('document_type', None)
     system_prompt = request.form.get('system_prompt', None)
-    extraction_strategy = request.form.get('extraction_strategy', 'auto')  # auto | single_pass | ocr_then_extract
+    extraction_strategy = request.form.get('extraction_strategy', 'auto')  # auto | single_pass
     page_range = request.form.get('page_range', 'all')  # all | first | N (int)
     model_override = request.form.get('model', None)  # per-request model override
 
@@ -666,7 +668,10 @@ def extract_data_route():
                     
                     # Cool down between multiple files in same request
                     if i < len(files) - 1:
-                        time.sleep(4.0)
+                        batch_delay = get_batch_delay()
+                        print(f"Batch cooldown: unloading model + waiting {batch_delay}s before next file...")
+                        unload_ollama_model()
+                        time.sleep(batch_delay)
             else:
                 print(f"Invalid or not allowed file skipped: {file.filename}")
 

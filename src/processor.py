@@ -23,6 +23,56 @@ def get_ollama_timeout():
         return 3600
 
 
+def get_image_max_width():
+    """Maximum width for images sent to the model. Smaller = faster, less VRAM."""
+    try:
+        return int(os.getenv("IMAGE_MAX_WIDTH", "1024"))
+    except ValueError:
+        return 1024
+
+
+def get_skip_image_enhance():
+    """Whether to skip contrast/sharpness/brightness enhancement."""
+    return os.getenv("SKIP_IMAGE_ENHANCE", "false").lower() in ("true", "1", "yes")
+
+
+def get_batch_delay():
+    """Delay in seconds between batch file processing."""
+    try:
+        return float(os.getenv("BATCH_DELAY", "5"))
+    except ValueError:
+        return 5.0
+
+
+def get_ollama_keep_alive():
+    """How long Ollama keeps the model loaded after a request.
+    Shorter = less VRAM wasted by idle models, but slower cold-start.
+    Default: '2m'. Set to '0' to unload immediately after each request.
+    """
+    return os.getenv("OLLAMA_KEEP_ALIVE", "2m")
+
+
+def unload_ollama_model():
+    """Force Ollama to unload the current model from VRAM.
+    This prevents multiple model instances from competing for VRAM
+    during retries or batch processing.
+    """
+    try:
+        base_url = get_ollama_base_url()
+        model = get_ollama_model()
+        print(f"[VRAM cleanup] Unloading model {model} from VRAM...")
+        requests.post(
+            f"{base_url}/api/generate",
+            json={"model": model, "prompt": "", "keep_alive": 0},
+            timeout=10
+        )
+        import time as _time
+        _time.sleep(2)  # Give Ollama time to release VRAM
+        print(f"[VRAM cleanup] Model unloaded")
+    except Exception as e:
+        print(f"[VRAM cleanup] Warning: could not unload model: {e}")
+
+
 def is_deepseek_ocr_model(model_name):
     model_lower = (model_name or "").lower()
     return "deepseek-ocr" in model_lower
@@ -73,19 +123,31 @@ def process_document(filepath, mime_type, page_range="all"):
 
 
 def process_image(image_path):
-    """Process image file with enhancement for better OCR and return base64 encoded"""
+    """Process image file with optional enhancement for better OCR and return base64 encoded"""
     try:
         with Image.open(image_path) as img:
             # Convert to RGB if necessary
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             
-            # Apply image enhancement for better text recognition
-            img = enhance_image_for_ocr(img)
+            max_width = get_image_max_width()
             
-            # Save to buffer with high quality
+            # Resize if larger than max width
+            if img.width > max_width:
+                ratio = max_width / img.width
+                new_height = int(img.height * ratio)
+                img = img.resize((max_width, new_height), Image.LANCZOS)
+                print(f"Resized image to {max_width}x{new_height}")
+            
+            # Apply image enhancement only if not skipped
+            if not get_skip_image_enhance():
+                img = enhance_image_for_ocr(img)
+            else:
+                print("[SKIP_IMAGE_ENHANCE] Skipping contrast/sharpness enhancement")
+            
+            # Save to buffer
             buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=95, optimize=True)
+            img.save(buffer, format='JPEG', quality=85, optimize=True)
             buffer.seek(0)
             
             base64_image = base64.b64encode(buffer.read()).decode('utf-8')
@@ -101,24 +163,17 @@ def process_image(image_path):
 def enhance_image_for_ocr(img):
     """
     Enhance image for better OCR results, especially for handwritten text.
+    NOTE: No longer upscales images — the max width is handled by get_image_max_width().
     """
-    # 1. Resize if too small (upscale for better recognition)
-    min_width = 1500
-    if img.width < min_width:
-        ratio = min_width / img.width
-        new_size = (int(img.width * ratio), int(img.height * ratio))
-        img = img.resize(new_size, Image.LANCZOS)
-        print(f"Upscaled image to {new_size[0]}x{new_size[1]}")
-    
-    # 2. Increase contrast slightly
+    # 1. Increase contrast slightly
     contrast_enhancer = ImageEnhance.Contrast(img)
     img = contrast_enhancer.enhance(1.15)
     
-    # 3. Increase sharpness
+    # 2. Increase sharpness
     sharpness_enhancer = ImageEnhance.Sharpness(img)
     img = sharpness_enhancer.enhance(1.2)
     
-    # 4. Slight brightness adjustment
+    # 3. Slight brightness adjustment
     brightness_enhancer = ImageEnhance.Brightness(img)
     img = brightness_enhancer.enhance(1.02)
     
@@ -155,10 +210,17 @@ def process_pdf(pdf_path, page_range="all"):
     try:
         model_name = get_ollama_model()
         deepseek_mode = is_deepseek_ocr_model(model_name)
+        max_width = get_image_max_width()
+        skip_enhance = get_skip_image_enhance()
 
         print(f"Converting PDF to images: {pdf_path}")
-        # Model-aware rendering: DeepSeek OCR is more stable with moderate resolutions
-        pdf_dpi = 220 if deepseek_mode else 300
+        # Use lower DPI for smaller target widths to avoid wasting CPU
+        if max_width <= 1024:
+            pdf_dpi = 200
+        elif deepseek_mode:
+            pdf_dpi = 220
+        else:
+            pdf_dpi = 300
         
         last_page = None
         if page_range == "first":
@@ -182,20 +244,21 @@ def process_pdf(pdf_path, page_range="all"):
         for i, image in enumerate(images):
             print(f"Processing page {i+1}/{len(images)}...")
             
-            # Apply OCR enhancement
-            image = enhance_image_for_ocr(image)
-            
-            # Resize image to fit model limits while preserving quality
-            # For deepseek-ocr keep lower width for runtime stability
-            MAX_WIDTH = 1280 if deepseek_mode else 1600
-            if image.width > MAX_WIDTH:
-                ratio = MAX_WIDTH / image.width
+            # Resize image to target width directly (no upscale→downscale cycle)
+            if image.width > max_width:
+                ratio = max_width / image.width
                 new_height = int(image.height * ratio)
-                image = image.resize((MAX_WIDTH, new_height), Image.LANCZOS)
-                print(f"Resized page {i+1} to {MAX_WIDTH}x{new_height}")
+                image = image.resize((max_width, new_height), Image.LANCZOS)
+                print(f"Resized page {i+1} to {max_width}x{new_height}")
             
-            # Save temporarily with model-aware quality
-            jpeg_quality = 88 if deepseek_mode else 95
+            # Apply OCR enhancement only if not skipped
+            if not skip_enhance:
+                image = enhance_image_for_ocr(image)
+            else:
+                print(f"[SKIP_IMAGE_ENHANCE] Skipping enhancement for page {i+1}")
+            
+            # Save temporarily with moderate quality (smaller payload)
+            jpeg_quality = 80 if deepseek_mode else 85
             temp_image_path = f"{pdf_path}_page_{i}.jpg"
             image.save(temp_image_path, 'JPEG', quality=jpeg_quality, optimize=True)
             
@@ -300,8 +363,7 @@ def extract_structured_data_with_ollama(
     
     extraction_strategy:
       'auto' — pick the best strategy based on model type
-      'single_pass' — direct vision-to-JSON (original)
-      'ocr_then_extract' — Phase 1: vision→raw text, Phase 2: LLM→JSON
+      'single_pass' — direct vision-to-JSON
     """
     if not fields_to_extract or not isinstance(fields_to_extract, dict):
         return {"error": "fields_to_extract is required and must be a dictionary {field: description}"}
@@ -342,7 +404,7 @@ def single_pass_extraction(
     mime_type=None,
     extraction_strategy='auto',
 ):
-    """Single-pass extraction (direct vision-to-JSON) or two-phase OCR-then-extract."""
+    """Single-pass extraction (direct vision-to-JSON)."""
     model_name = get_ollama_model()
 
     # Ollama-based models
@@ -358,20 +420,10 @@ def single_pass_extraction(
     print(f"Processing {'single image' if num_pages == 1 else f'PDF with {num_pages} page(s)'}")
 
     # Decide strategy
-    if extraction_strategy == 'auto':
-        if is_ocr_specialist_model(model_name):
-            chosen_strategy = 'ocr_specialist'
-        else:
-            # For most models (especially Qwen/Llama vision), single_pass is much more robust
-            # than OCR-first, which often loses structure or causes JSON schema issues.
-            chosen_strategy = 'single_pass'
-    elif extraction_strategy == 'ocr_then_extract':
-        chosen_strategy = 'ocr_then_extract'
+    if is_ocr_specialist_model(model_name):
+        chosen_strategy = 'ocr_specialist'
     else:
-        if is_ocr_specialist_model(model_name):
-            chosen_strategy = 'ocr_specialist'
-        else:
-            chosen_strategy = 'single_pass'
+        chosen_strategy = 'single_pass'
 
     print(f"Strategy: {chosen_strategy} (requested={extraction_strategy})")
 
@@ -379,10 +431,6 @@ def single_pass_extraction(
         if chosen_strategy == 'ocr_specialist':
             return _ocr_specialist_extraction(
                 pages, fields_to_extract, additional_request, doc_type_context
-            )
-        elif chosen_strategy == 'ocr_then_extract':
-            return _ocr_then_extract(
-                pages, fields_to_extract, additional_request, doc_type_context, system_prompt
             )
         else:
             return _standard_vision_extraction(
@@ -479,135 +527,7 @@ def _ocr_specialist_extraction(pages, fields_to_extract, additional_request, doc
     return result
 
 
-def _ocr_then_extract(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None):
-    """Two-phase extraction for general vision models:
-      Phase 1 — Vision call to transcribe ALL text from the image (OCR pass).
-      Phase 2 — Text-only LLM call to extract structured JSON from OCR text.
-    This strategy works best for handwritten documents where direct JSON extraction
-    produces many errors, since the model can focus on reading first, then structuring.
-    """
-    model_name = get_ollama_model()
-    print(f"🔄 OCR-then-Extract strategy with {model_name}")
-
-    ocr_prompt = (
-        "Transcribe ALL text visible in this document image. "
-        "Preserve the original layout using line breaks. "
-        "Include every piece of text: printed, typed, and handwritten. "
-        "Output ONLY the transcribed text."
-    )
-
-    page_ocr_texts = []
-    total = len(pages)
-
-    for i, page_image in enumerate(pages):
-        label = f"page {i+1}/{total}" if total > 1 else "image"
-        print(f"Phase 1 (OCR): {label}...")
-        try:
-            raw_text = call_ollama_vision_raw(ocr_prompt, [page_image])
-            # Strip thinking tags
-            raw_text = strip_thinking_tags(raw_text)
-            print(f"Phase 1 complete for {label}: {len(raw_text)} chars")
-            if raw_text.strip():
-                page_ocr_texts.append(raw_text.strip())
-            else:
-                print(f"Warning: Phase 1 returned empty text for {label}")
-        except Exception as e:
-            print(f"Phase 1 error on {label}: {e}")
-            continue
-
-    if not page_ocr_texts:
-        raise Exception("Phase 1 OCR returned no text from any page")
-
-    combined_ocr = "\n\n--- PAGE BREAK ---\n\n".join(page_ocr_texts)
-    print(f"Phase 1 complete: {len(combined_ocr)} total chars across {len(page_ocr_texts)} page(s)")
-
-    # Phase 2 — text-only extraction using /api/generate (no images)
-    fields_str = "\n".join([f"- `{key}`: {desc}" for key, desc in fields_to_extract.items()])
-    data_template = ', '.join([f'"{key}": {{"value": null, "confidence": 0}}' for key in fields_to_extract.keys()])
-
-    phase2_prompt = f"""You are a document data extraction expert. Below is the OCR text transcribed from a document.
-
-{f"DOCUMENT TYPE: {doc_type_context}" if doc_type_context else ""}
-
-TRANSCRIBED TEXT:
----
-{combined_ocr}
----
-
-FIELDS TO EXTRACT:
-{fields_str}
-
-{f"ADDITIONAL REQUEST: {additional_request}" if additional_request else ""}
-
-INSTRUCTIONS:
-- Extract EXACT values from the transcribed text for each field
-- For codes/IDs, copy character-by-character
-- If a field is not found, set value to null
-- Return ONLY valid JSON
-
-OUTPUT FORMAT:
-{{
-  "extraction_results": {{
-    "overall_confidence": 0,
-    "reasoning": "brief notes",
-    "data": {{
-      {data_template}
-    }},
-    "additional_request_result": null
-  }}
-}}"""
-
-    print(f"Phase 2 (LLM extraction from OCR text)...")
-    try:
-        # Phase 2: text-only call (no images) with JSON format
-        base_url = get_ollama_base_url()
-        model = get_ollama_model()
-        thinking = is_thinking_model(model)
-        num_ctx = 8192 if thinking else 4096
-        actual_prompt = phase2_prompt + (" /no_think" if thinking else "")
-
-        payload = {
-            "model": model,
-            "prompt": actual_prompt,
-            "stream": False,
-            "format": "json",
-            "options": {
-                "temperature": 0.1,
-                "num_predict": 4000,
-                "num_ctx": num_ctx,
-                "num_keep": 0,
-            },
-        }
-        response = requests.post(f"{base_url}/api/generate", json=payload, timeout=get_ollama_timeout())
-        response.raise_for_status()
-        result_text = response.json().get("response", "{}")
-        if thinking:
-            result_text = strip_thinking_tags(result_text)
-        print(f"Phase 2 complete: {len(result_text)} chars")
-
-        result = parse_extraction_result(result_text, fields_to_extract, ocr_text=combined_ocr)
-
-        # Tag strategy in reasoning
-        er = result.get("extraction_results", {})
-        er["reasoning"] = f"[ocr_then_extract] {er.get('reasoning', '')}"
-
-        return result
-
-    except Exception as e:
-        print(f"Phase 2 error: {e}")
-        # Fall back to regex parsing of OCR text
-        print("Falling back to regex parsing of OCR text...")
-        extracted_data = parse_ocr_text_to_fields(combined_ocr, fields_to_extract)
-        found = [k for k, v in extracted_data.items() if v.get("value") is not None]
-        print(f"Regex fallback found {len(found)}/{len(fields_to_extract)} fields")
-        return {
-            "extraction_results": {
-                "confidence_score": 60,
-                "reasoning": f"[ocr_then_extract] Phase 2 LLM failed ({e}), used regex fallback",
-                "data": extracted_data,
-                "additional_request_result": None,
-            }
-        }
+# NOTE: _ocr_then_extract was removed — single_pass is more reliable for all current models
 
 
 def _standard_vision_extraction(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None):
@@ -690,8 +610,11 @@ Now analyze the document image and extract the requested fields. DO NOT wrap JSO
         except Exception as page_error:
             print(f"Error processing {label}: {page_error}")
             try:
+                import time as _time
+                print(f"Unloading model and waiting before retry...")
+                unload_ollama_model()
                 print(f"Retrying {label} with aggressively smaller image (768px)...")
-                smaller = downscale_base64_image(page_image, max_width=768, jpeg_quality=80)
+                smaller = downscale_base64_image(page_image, max_width=768, jpeg_quality=75)
                 retry_response = call_ollama_vision(page_instruction, [smaller])
                 retry_result = parse_extraction_result(retry_response, fields_to_extract)
                 page_extractions.append(retry_result)
@@ -886,7 +809,13 @@ def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_js
     and the actual answer in 'content'. With stream=False the Ollama server collapses
     these into a single message where 'content' is often empty. With stream=True each
     chunk arrives individually so we can collect only the 'content' pieces.
+
+    If content is still empty after streaming, we fall back to:
+      1. Trying to use any 'thinking' tokens collected (the model may have put the
+         actual answer there by mistake)
+      2. If still empty, retry once after a short delay
     """
+    import time as _time
     url = f"{base_url}/api/chat"
 
     # Images go inside the message object for /api/chat
@@ -900,6 +829,7 @@ def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_js
             }
         ],
         "stream": True,   # ← must be True for Qwen3.5 to return non-empty content
+        "keep_alive": get_ollama_keep_alive(),
         "options": options
     }
 
@@ -907,27 +837,67 @@ def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_js
     if format_json and not any(kw in model.lower() for kw in ['qwen', 'qwq']):
         payload["format"] = "json"
 
-    print(f"[Chat API streaming] Calling {model} via /api/chat (stream=True)...")
-    content_chunks = []
-    with requests.post(url, json=payload, stream=True, timeout=get_ollama_timeout()) as response:
-        response.raise_for_status()
-        for raw_line in response.iter_lines(decode_unicode=True):
-            if not raw_line:
-                continue
-            try:
-                chunk = json.loads(raw_line)
-            except json.JSONDecodeError:
-                continue
-            msg = chunk.get("message", {})
-            # Collect only 'content' (not 'thinking') to skip the CoT reasoning
-            piece = msg.get("content", "")
-            if piece:
-                content_chunks.append(piece)
-            if chunk.get("done", False):
-                break
+    def _do_streaming_call():
+        """Perform one streaming call, return (content_text, thinking_text)."""
+        content_chunks = []
+        thinking_chunks = []
+        print(f"[Chat API streaming] Calling {model} via /api/chat (stream=True)...")
+        with requests.post(url, json=payload, stream=True, timeout=get_ollama_timeout()) as response:
+            response.raise_for_status()
+            for raw_line in response.iter_lines(decode_unicode=True):
+                if not raw_line:
+                    continue
+                try:
+                    chunk = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+                msg = chunk.get("message", {})
+                # Collect 'content' (the actual answer)
+                piece = msg.get("content", "")
+                if piece:
+                    content_chunks.append(piece)
+                # Also collect 'thinking' as fallback diagnostic
+                think_piece = msg.get("thinking", "")
+                if think_piece:
+                    thinking_chunks.append(think_piece)
+                if chunk.get("done", False):
+                    break
 
-    response_text = "".join(content_chunks)
-    print(f"[Chat API streaming] Collected {len(response_text)} chars of content")
+        content_text = "".join(content_chunks)
+        thinking_text = "".join(thinking_chunks)
+        return content_text, thinking_text
+
+    # First attempt
+    response_text, thinking_text = _do_streaming_call()
+    print(f"[Chat API streaming] Collected {len(response_text)} chars of content, {len(thinking_text)} chars of thinking")
+
+    # If content is empty, try to salvage from thinking tokens
+    if not response_text and thinking_text:
+        print(f"[Chat API streaming] Content is empty but got {len(thinking_text)} thinking chars — checking for JSON in thinking...")
+        # Strip thinking tags and try to use the text
+        cleaned_thinking = strip_thinking_tags(thinking_text)
+        if cleaned_thinking:
+            # Check if thinking contains JSON (model might have put the answer there)
+            if '{' in cleaned_thinking and '}' in cleaned_thinking:
+                print(f"[Chat API streaming] Found potential JSON in thinking block, using as response")
+                response_text = cleaned_thinking
+            else:
+                print(f"[Chat API streaming] Thinking block has text but no JSON")
+
+    # If still empty, unload model and retry once
+    if not response_text:
+        print(f"[Chat API streaming] Empty response — unloading model and retrying...")
+        unload_ollama_model()
+        response_text, thinking_text = _do_streaming_call()
+        print(f"[Chat API streaming RETRY] Collected {len(response_text)} chars of content, {len(thinking_text)} chars of thinking")
+
+        # Try thinking fallback again on retry
+        if not response_text and thinking_text:
+            cleaned_thinking = strip_thinking_tags(thinking_text)
+            if cleaned_thinking and '{' in cleaned_thinking and '}' in cleaned_thinking:
+                print(f"[Chat API streaming RETRY] Using JSON from thinking block")
+                response_text = cleaned_thinking
+
     return response_text
 
 
@@ -956,6 +926,7 @@ def call_ollama_vision_raw(prompt, images_base64):
         "prompt": prompt,
         "images": images_base64,
         "stream": False,
+        "keep_alive": get_ollama_keep_alive(),
         "options": options
     }
 
@@ -1011,13 +982,14 @@ def call_ollama_vision(prompt, images_base64):
     # Qwen VL models tile images into 14x14px patches. Large images (>1024px wide)
     # can produce thousands of tokens and overflow the context window silently.
     # Pre-downscale to 1024px for Qwen to keep the patch count manageable.
+    max_w = get_image_max_width()
     is_qwen_model = any(kw in model.lower() for kw in ['qwen', 'qwq'])
     if is_qwen_model:
         images_base64 = [
-            downscale_base64_image(img, max_width=1024, jpeg_quality=85)
+            downscale_base64_image(img, max_width=max_w, jpeg_quality=85)
             for img in images_base64
         ]
-        print(f"[Qwen vision] Pre-downscaled images to max 1024px to avoid context overflow")
+        print(f"[Qwen vision] Pre-downscaled images to max {max_w}px to avoid context overflow")
     
     options = {
         "temperature": 0.1,
@@ -1042,6 +1014,7 @@ def call_ollama_vision(prompt, images_base64):
         "prompt": prompt,
         "images": images_base64,
         "stream": False,
+        "keep_alive": get_ollama_keep_alive(),
         "options": options
     }
     

@@ -145,7 +145,7 @@ Extract structured data from one or more documents.
 | `additional_request` | string | No | Extra instructions for the model |
 | `document_type` | string | No | E.g. `"invoice"`, `"receipt"` |
 | `system_prompt` | string | No | Override the default system prompt |
-| `extraction_strategy` | string | No | `auto` (default), `single_pass`, `ocr_then_extract` |
+| `extraction_strategy` | string | No | `auto` (default), `single_pass` |
 | `page_range` | string | No | `all` / `first` / `1-3` / etc. |
 | `model` | string | No | Per-request model override |
 
