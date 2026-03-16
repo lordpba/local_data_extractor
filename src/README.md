@@ -146,8 +146,7 @@ Extract structured data from one or more documents.
 | `document_type` | string | No | E.g. `"invoice"`, `"receipt"` |
 | `system_prompt` | string | No | Override the default system prompt |
 | `extraction_strategy` | string | No | `auto` (default), `single_pass`, `ocr_then_extract` |
-| `handwriting_mode` | string | No | `true` / `false` |
-| `page_range` | string | No | `all` (default), `first`, or an integer |
+| `page_range` | string | No | `all` / `first` / `1-3` / etc. |
 | `model` | string | No | Per-request model override |
 
 **Example:**
@@ -156,8 +155,7 @@ Extract structured data from one or more documents.
 curl -X POST http://localhost:5000/extract \
   -F 'files=@doc.pdf' \
   -F 'fields_to_extract={"name":"Full name","date":"Date of birth"}' \
-  -F 'extraction_strategy=ocr_then_extract' \
-  -F 'handwriting_mode=true'
+  -F 'extraction_strategy=auto'
 ```
 
 **Response:**

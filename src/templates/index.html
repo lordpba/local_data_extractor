@@ -1308,10 +1308,6 @@
                             </div>
                             <div class="option-group" style="grid-column: span 2;">
                                 <div class="option-checkbox">
-                                    <input type="checkbox" id="handwritingMode">
-                                    <span>Handwriting Mode — Enhanced OCR for handwritten documents</span>
-                                </div>
-                                <div class="option-checkbox" style="margin-top:6px;">
                                     <input type="checkbox" id="autoExport">
                                     <span>Auto-export Excel after all documents are validated</span>
                                 </div>
@@ -1821,10 +1817,8 @@ CRITICAL INSTRUCTIONS:
             if (!preset) return;
             setFieldsInUi(preset.fields);
             if (preset.docType) document.getElementById('documentType').value = preset.docType;
-            // Auto-enable handwriting mode for ID/CF documents
-            if (['carta_identita', 'codice_fiscale'].includes(presetKey)) {
-                document.getElementById('handwritingMode').checked = true;
-            }
+            if (preset.docType) document.getElementById('documentType').value = preset.docType;
+            
         }
 
         // ===== LOCALSTORAGE TEMPLATES =====
@@ -2001,7 +1995,7 @@ CRITICAL INSTRUCTIONS:
             const systemPrompt = document.getElementById('systemPrompt').value.trim();
             const strategy = document.getElementById('extractionStrategy').value;
             const pageRange = document.getElementById('pageRange').value;
-            const handwriting = document.getElementById('handwritingMode').checked;
+
 
             const totalFiles = selectedFiles.length;
             extractionAborted = false;
@@ -2047,7 +2041,7 @@ CRITICAL INSTRUCTIONS:
                     if (systemPrompt) formData.append('system_prompt', systemPrompt);
                     if (strategy) formData.append('extraction_strategy', strategy);
                     if (pageRange) formData.append('page_range', pageRange);
-                    if (handwriting) formData.append('handwriting_mode', 'true');
+
 
                     const response = await fetch('/extract', { method: 'POST', body: formData });
                     const data = await response.json();

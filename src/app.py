@@ -64,7 +64,7 @@ def system_info():
         "cpu_count": psutil.cpu_count(logical=True),
         "memory_total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
         "ollama_url": os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434'),
-        "ollama_model": os.environ.get('OLLAMA_MODEL', 'llama3.2-vision:11b'),
+        "ollama_model": os.environ.get('OLLAMA_MODEL', 'qwen3.5:4b'),
     }), 200
 
 @app.route('/health', methods=['GET'])
@@ -447,7 +447,7 @@ def get_recommended_models():
 @app.route('/models/current', methods=['GET'])
 def get_current_model():
     """Get currently configured model and ollama URL"""
-    current_model = os.environ.get('OLLAMA_MODEL', 'llama3.2-vision:11b')
+    current_model = os.environ.get('OLLAMA_MODEL', 'qwen3.5:4b')
     current_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
     return jsonify({
         "current_model": current_model,
@@ -601,7 +601,6 @@ def extract_data_route():
     document_type = request.form.get('document_type', None)
     system_prompt = request.form.get('system_prompt', None)
     extraction_strategy = request.form.get('extraction_strategy', 'auto')  # auto | single_pass | ocr_then_extract
-    handwriting_mode = request.form.get('handwriting_mode', 'false').lower() in ('true', '1', 'yes')
     page_range = request.form.get('page_range', 'all')  # all | first | N (int)
     model_override = request.form.get('model', None)  # per-request model override
 
@@ -648,7 +647,6 @@ def extract_data_route():
                         filepath=filepath,
                         mime_type=file.mimetype,
                         extraction_strategy=extraction_strategy,
-                        handwriting_mode=handwriting_mode,
                     )
 
                     duration_s = round(time.time() - file_start, 1)
@@ -668,7 +666,7 @@ def extract_data_route():
                     
                     # Cool down between multiple files in same request
                     if i < len(files) - 1:
-                        time.sleep(2.0)
+                        time.sleep(4.0)
             else:
                 print(f"Invalid or not allowed file skipped: {file.filename}")
 
@@ -748,6 +746,9 @@ def export_excel():
             row = [filename]
             for field in ordered_fields:
                 value = data_dict.get(field, '')
+                # Handle dictionary values (e.g. from regex fallback)
+                if isinstance(value, dict) and 'value' in value:
+                    value = value.get('value', '')
                 # Handle None values
                 if value is None:
                     value = ''
@@ -803,4 +804,4 @@ def export_excel():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"Starting Flask server on port {port}...")
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=port)

@@ -13,7 +13,7 @@ def get_ollama_base_url():
     return os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 def get_ollama_model():
-    return os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b")
+    return os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
 
 
 def get_ollama_timeout():
@@ -110,17 +110,17 @@ def enhance_image_for_ocr(img):
         img = img.resize(new_size, Image.LANCZOS)
         print(f"Upscaled image to {new_size[0]}x{new_size[1]}")
     
-    # 2. Increase contrast for handwritten text
+    # 2. Increase contrast slightly
     contrast_enhancer = ImageEnhance.Contrast(img)
-    img = contrast_enhancer.enhance(1.3)  # 30% more contrast
+    img = contrast_enhancer.enhance(1.15)
     
     # 3. Increase sharpness
     sharpness_enhancer = ImageEnhance.Sharpness(img)
-    img = sharpness_enhancer.enhance(1.5)  # 50% sharper
+    img = sharpness_enhancer.enhance(1.2)
     
-    # 4. Slight brightness adjustment to make text pop
+    # 4. Slight brightness adjustment
     brightness_enhancer = ImageEnhance.Brightness(img)
-    img = brightness_enhancer.enhance(1.05)  # 5% brighter
+    img = brightness_enhancer.enhance(1.02)
     
     return img
 
@@ -295,7 +295,6 @@ def extract_structured_data_with_ollama(
     filepath=None,
     mime_type=None,
     extraction_strategy='auto',
-    handwriting_mode=False,
 ):
     """Extract structured data using a single Vision AI pipeline (image-first, no classical OCR pass).
     
@@ -330,7 +329,6 @@ def extract_structured_data_with_ollama(
         filepath=filepath,
         mime_type=mime_type,
         extraction_strategy=extraction_strategy,
-        handwriting_mode=handwriting_mode,
     )
 
 
@@ -343,7 +341,6 @@ def single_pass_extraction(
     filepath=None,
     mime_type=None,
     extraction_strategy='auto',
-    handwriting_mode=False,
 ):
     """Single-pass extraction (direct vision-to-JSON) or two-phase OCR-then-extract."""
     model_name = get_ollama_model()
@@ -376,7 +373,7 @@ def single_pass_extraction(
         else:
             chosen_strategy = 'single_pass'
 
-    print(f"Strategy: {chosen_strategy} (requested={extraction_strategy}, handwriting={handwriting_mode})")
+    print(f"Strategy: {chosen_strategy} (requested={extraction_strategy})")
 
     try:
         if chosen_strategy == 'ocr_specialist':
@@ -385,11 +382,11 @@ def single_pass_extraction(
             )
         elif chosen_strategy == 'ocr_then_extract':
             return _ocr_then_extract(
-                pages, fields_to_extract, additional_request, doc_type_context, system_prompt, handwriting_mode
+                pages, fields_to_extract, additional_request, doc_type_context, system_prompt
             )
         else:
             return _standard_vision_extraction(
-                pages, fields_to_extract, additional_request, doc_type_context, system_prompt, handwriting_mode
+                pages, fields_to_extract, additional_request, doc_type_context, system_prompt
             )
     except Exception as e:
         print(f"Error in single_pass_extraction: {e}")
@@ -482,7 +479,7 @@ def _ocr_specialist_extraction(pages, fields_to_extract, additional_request, doc
     return result
 
 
-def _ocr_then_extract(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None, handwriting_mode=False):
+def _ocr_then_extract(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None):
     """Two-phase extraction for general vision models:
       Phase 1 — Vision call to transcribe ALL text from the image (OCR pass).
       Phase 2 — Text-only LLM call to extract structured JSON from OCR text.
@@ -492,22 +489,12 @@ def _ocr_then_extract(pages, fields_to_extract, additional_request, doc_type_con
     model_name = get_ollama_model()
     print(f"🔄 OCR-then-Extract strategy with {model_name}")
 
-    # Phase 1 prompt — adapted for handwriting awareness
-    if handwriting_mode:
-        ocr_prompt = (
-            "You are an expert OCR system. Transcribe ALL text visible in this image, "
-            "including handwritten text. Read each handwritten character carefully by its shape. "
-            "For codes and IDs, spell out each character individually. "
-            "Output ONLY the transcribed text, preserving layout with line breaks. "
-            "Do NOT add commentary or explanations."
-        )
-    else:
-        ocr_prompt = (
-            "Transcribe ALL text visible in this document image. "
-            "Preserve the original layout using line breaks. "
-            "Include every piece of text: printed, typed, and handwritten. "
-            "Output ONLY the transcribed text."
-        )
+    ocr_prompt = (
+        "Transcribe ALL text visible in this document image. "
+        "Preserve the original layout using line breaks. "
+        "Include every piece of text: printed, typed, and handwritten. "
+        "Output ONLY the transcribed text."
+    )
 
     page_ocr_texts = []
     total = len(pages)
@@ -623,7 +610,7 @@ OUTPUT FORMAT:
         }
 
 
-def _standard_vision_extraction(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None, handwriting_mode=False):
+def _standard_vision_extraction(pages, fields_to_extract, additional_request, doc_type_context, system_prompt=None):
     """Standard single-pass vision extraction for llama3.2-vision, llava, bakllava, etc."""
     fields_to_extract_str = "\n".join(
         [f"- `{key}`: {description}" for key, description in fields_to_extract.items()]
@@ -649,23 +636,10 @@ CRITICAL INSTRUCTIONS FOR ACCURATE TEXT EXTRACTION:
 
     base_prompt = system_prompt.strip() if system_prompt and system_prompt.strip() else default_system_prompt
 
-    # Enhance prompt for handwriting mode
-    handwriting_extra = ""
-    if handwriting_mode:
-        handwriting_extra = """
-HANDWRITING MODE ENABLED — Extra attention required:
-- This document contains HANDWRITTEN text that is the primary data source.
-- Spend extra effort decoding each handwritten character by its SHAPE.
-- Common handwriting confusions: 0↔O, 1↔I↔l, 5↔S, 8↔B, Z↔2, G↔6, D↔0, U↔V.
-- For Italian Codice Fiscale: exactly 16 alphanumeric chars (6 letters + 2 digits + 1 letter + 2 digits + 1 letter + 3 digits + 1 letter).
-- Do NOT invent or guess characters — if truly unreadable, write '?' for that position.
-"""
-
     data_template = ', '.join(
         [f'"{key}": {{"value": null, "confidence": 0}}' for key in fields_to_extract.keys()]
     )
     instruction = f"""{base_prompt}
-{handwriting_extra}
 {f"DOCUMENT TYPE: {doc_type_context}" if doc_type_context else ""}
 
 FIELD EXTRACTION:
@@ -716,8 +690,8 @@ Now analyze the document image and extract the requested fields. DO NOT wrap JSO
         except Exception as page_error:
             print(f"Error processing {label}: {page_error}")
             try:
-                print(f"Retrying {label} with smaller image...")
-                smaller = downscale_base64_image(page_image, max_width=1024, jpeg_quality=80)
+                print(f"Retrying {label} with aggressively smaller image (768px)...")
+                smaller = downscale_base64_image(page_image, max_width=768, jpeg_quality=80)
                 retry_response = call_ollama_vision(page_instruction, [smaller])
                 retry_result = parse_extraction_result(retry_response, fields_to_extract)
                 page_extractions.append(retry_result)
@@ -905,36 +879,57 @@ def strip_deepseek_ocr_annotations(text):
 
 
 def _call_ollama_chat(model, prompt, images_base64, base_url, options, format_json=False):
-    """Call Ollama /api/chat endpoint — used as fallback for models that return
-    empty responses via /api/generate (e.g. qwen3-vl).
+    """Call Ollama /api/chat endpoint using streaming to work around the Qwen3.5
+    non-streaming empty-content bug.
+
+    Qwen3.5 (thinking model) sends thinking tokens in a separate 'thinking' field
+    and the actual answer in 'content'. With stream=False the Ollama server collapses
+    these into a single message where 'content' is often empty. With stream=True each
+    chunk arrives individually so we can collect only the 'content' pieces.
     """
     url = f"{base_url}/api/chat"
-    
-    # In Ollama API, images go inside the message object!
+
+    # Images go inside the message object for /api/chat
     payload = {
         "model": model,
         "messages": [
             {
-                "role": "user", 
-                "content": prompt, 
+                "role": "user",
+                "content": prompt,
                 "images": images_base64
             }
         ],
-        "stream": False,
+        "stream": True,   # ← must be True for Qwen3.5 to return non-empty content
         "options": options
     }
-    
-    if format_json:
-        if not any(kw in model.lower() for kw in ['qwen', 'qwq']):
-            payload["format"] = "json"
-    
-    print(f"[Chat API fallback] Calling {model} via /api/chat...")
-    response = requests.post(url, json=payload, timeout=get_ollama_timeout())
-    response.raise_for_status()
-    result = response.json()
-    message = result.get("message", {})
-    response_text = message.get("content", "")
+
+    # format:json causes empty responses on Qwen — skip it, we parse JSON ourselves
+    if format_json and not any(kw in model.lower() for kw in ['qwen', 'qwq']):
+        payload["format"] = "json"
+
+    print(f"[Chat API streaming] Calling {model} via /api/chat (stream=True)...")
+    content_chunks = []
+    with requests.post(url, json=payload, stream=True, timeout=get_ollama_timeout()) as response:
+        response.raise_for_status()
+        for raw_line in response.iter_lines(decode_unicode=True):
+            if not raw_line:
+                continue
+            try:
+                chunk = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+            msg = chunk.get("message", {})
+            # Collect only 'content' (not 'thinking') to skip the CoT reasoning
+            piece = msg.get("content", "")
+            if piece:
+                content_chunks.append(piece)
+            if chunk.get("done", False):
+                break
+
+    response_text = "".join(content_chunks)
+    print(f"[Chat API streaming] Collected {len(response_text)} chars of content")
     return response_text
+
 
 
 def call_ollama_vision_raw(prompt, images_base64):
@@ -974,10 +969,9 @@ def call_ollama_vision_raw(prompt, images_base64):
             response.raise_for_status()
             result = response.json()
             response_text = result.get("response", "")
-            
-            # Fallback to /api/chat if generate returned empty
+
         if not response_text:
-            print("WARNING: Empty OCR response from both endpoints")
+            print("WARNING: Empty OCR response from Ollama")
             return ""
         # Strip thinking tags if present
         response_text = strip_thinking_tags(response_text)
@@ -1004,12 +998,26 @@ def call_ollama_vision(prompt, images_base64):
         raise Exception(f"❌ Model '{model}' does not support vision/image input. Please select a vision-capable model like: deepseek-ocr, llama3.2-vision, llava, or bakllava.")
 
     # Thinking models need more context and benefit from /no_think to avoid
-    # wasting tokens on chain-of-thought during structured extraction
+    # wasting tokens on chain-of-thought during structured extraction.
+    # Vision calls require a large num_ctx: a 1600x2261 image produces ~13,000 visual
+    # patch tokens (14x14px each). If num_ctx < total tokens the model silently returns
+    # an empty string. We use 16384 for vision to stay safe.
     thinking = is_thinking_model(model)
-    num_ctx = 8192 if thinking else 4096
+    num_ctx = 16384 if thinking else 8192
     if thinking:
         prompt = prompt + " /no_think"
         print(f"[Thinking model] Added /no_think, num_ctx={num_ctx}")
+
+    # Qwen VL models tile images into 14x14px patches. Large images (>1024px wide)
+    # can produce thousands of tokens and overflow the context window silently.
+    # Pre-downscale to 1024px for Qwen to keep the patch count manageable.
+    is_qwen_model = any(kw in model.lower() for kw in ['qwen', 'qwq'])
+    if is_qwen_model:
+        images_base64 = [
+            downscale_base64_image(img, max_width=1024, jpeg_quality=85)
+            for img in images_base64
+        ]
+        print(f"[Qwen vision] Pre-downscaled images to max 1024px to avoid context overflow")
     
     options = {
         "temperature": 0.1,
@@ -1020,6 +1028,14 @@ def call_ollama_vision(prompt, images_base64):
         "num_ctx": num_ctx,
         "num_keep": 0
     }
+
+    # Disable the thinking/CoT chain for Qwen3 models.
+    # /no_think in the prompt is unreliable; the Ollama 'think' option is the proper switch.
+    # Without this, Qwen3.5 burns ALL context tokens on its thinking chain and
+    # produces 0 chars of actual 'content', causing the empty response bug.
+    if thinking:
+        options["think"] = False
+        print(f"[Thinking model] Disabled CoT (think=False), num_ctx={num_ctx}")
     
     payload = {
         "model": model,
@@ -1047,15 +1063,15 @@ def call_ollama_vision(prompt, images_base64):
             response.raise_for_status()
             result = response.json()
             response_text = result.get("response", "")
-            
+
             # Fallback to /api/chat if generate returned empty (qwen3-vl, etc.)
             if not response_text:
                 print("[Vision] Empty from /api/generate, trying /api/chat fallback...")
                 response_text = _call_ollama_chat(model, prompt, images_base64, base_url, options, format_json=True)
-        
+
         if not response_text:
-            print("WARNING: Empty response from Ollama (both endpoints)")
-            return "{}"
+            print("WARNING: Empty response from Ollama")
+            raise Exception("Empty response from Ollama")
 
         # Strip <think>...</think> from thinking models before JSON parsing
         if thinking:

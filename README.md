@@ -15,7 +15,7 @@ A 100% privacy-compliant, local AI-powered document extraction tool. Perfect for
 - **100% Privacy & Local Executed:** No data leaves your machine/network. Essential for GDPR compliance.
 - **Zero-Shot Extraction:** No need to map coordinate templates. The AI "reads" the document naturally.
 - **Hub & Spoke Architecture Ready:** Run Ollama on a single powerful server (Hub) and access the web UI from any office laptop (Spoke) by pointing the UI to your server's IP.
-- **Handwriting Support:** Specially tuned prompts to decode difficult handwritten fields.
+- **Smart Structuring:** Transform messy layout and loose data points into structured JSON payload.
 - **Human-in-the-Loop Validation:** An elegant side-by-side UI to verify and edit the AI's extraction before exporting to Excel.
 - **Smart Model Auto-Fallback:** Optimized logic for dealing with LLM quirks, markdown block stripping, and empty JSON freezes.
 
